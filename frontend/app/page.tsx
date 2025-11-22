@@ -30,6 +30,8 @@ export default function Home() {
     { role: "user", text: "What's the market looking like?", time: "14:30:45" },
     { role: "agent", text: "BTC just broke resistance at $98.5k with crazy volume! Polymarket odds jumped +12% in 5 min - whales are moving. This could be big! 🚀", time: "14:31:01" },
   ]);
+  const [selectedSubreddit, setSelectedSubreddit] = useState<SubredditOption>(subredditOptions[0]);
+  const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
 
   useEffect(() => {
     const updateTime = () => {
@@ -41,18 +43,23 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    setSentimentExpanded(false);
+  }, [selectedSubreddit]);
+
   const polymarkets = [
     { question: "Bitcoin > $100k by Dec 31", probability: 68, change: "+12%", volume: "2.4M" },
     { question: "BTC to hit $120k in 2025", probability: 42, change: "+8%", volume: "1.8M" },
     { question: "Bitcoin ETF approval", probability: 89, change: "-2%", volume: "5.1M" },
     { question: "BTC above $90k EOY", probability: 76, change: "+5%", volume: "3.2M" },
   ];
-
-  const redditPosts = [
-    { time: "2m ago", author: "u/cryptowhale", snippet: "BTC breaking out. This is not a drill. Load up now before...", sentiment: "bullish" },
-    { time: "5m ago", author: "u/tradingpro", snippet: "Volume looking weak. Expecting pullback to 95k support...", sentiment: "bearish" },
-    { time: "12m ago", author: "u/moonboy", snippet: "100k by Christmas. Diamond hands only. HODL the line!", sentiment: "bullish" },
-  ];
+  const activeSubreddit = subredditData[selectedSubreddit];
+  const fallbackSentiment = subredditData["All"].stats;
+  const sentimentStats = activeSubreddit?.stats ?? fallbackSentiment;
+  const sentimentScoreLabel = sentimentStats.score > 0 ? `+${sentimentStats.score}` : `${sentimentStats.score}`;
+  const redditPosts = activeSubreddit?.posts ?? [];
+  const currentSubredditLink =
+    selectedSubreddit === "All" ? "https://reddit.com/r/all" : `https://reddit.com/${selectedSubreddit}`;
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
