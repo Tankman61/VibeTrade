@@ -4,12 +4,17 @@ import { useState } from "react";
 import { ChevronRightIcon, ChevronDownIcon } from "@radix-ui/react-icons";
 import { Text } from "@radix-ui/themes";
 
+type PortfolioView = "crypto" | "stocks" | "options" | "etfs";
+type HoldingsView = "crypto-holdings" | "stocks-holdings" | "options-holdings" | "etfs-holdings";
+
 interface SideMenuProps {
   isOpen: boolean;
   onToggle: () => void;
+  onPortfolioSelect: (portfolio: PortfolioView) => void;
+  onHoldingsSelect: (holdings: HoldingsView) => void;
 }
 
-export default function SideMenu({ isOpen, onToggle }: SideMenuProps) {
+export default function SideMenu({ isOpen, onToggle, onPortfolioSelect, onHoldingsSelect }: SideMenuProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   const menuItems = [
@@ -105,16 +110,30 @@ export default function SideMenu({ isOpen, onToggle }: SideMenuProps) {
                 )}
               </button>
 
-              {/* Dropdown Content (Empty for now) */}
+              {/* Dropdown Content */}
               {expandedSections.has(item.id) && (
                 <div
                   className="ml-4 mt-1 mb-2 pl-4 border-l space-y-1"
                   style={{ borderColor: 'var(--slate-6)' }}
                 >
-                  {/* Empty dropdown - content can be added here */}
-                  <Text size="2" style={{ color: 'var(--slate-11)' }} className="px-4 py-2 block">
-                    No items
-                  </Text>
+                  <button
+                    className="px-4 py-2 rounded transition-colors w-full text-left"
+                    style={{ color: 'var(--slate-11)' }}
+                    onClick={() => onPortfolioSelect(item.id as PortfolioView)}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--slate-4)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Text size="2">Portfolio</Text>
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded transition-colors w-full text-left"
+                    style={{ color: 'var(--slate-11)' }}
+                    onClick={() => onHoldingsSelect(`${item.id}-holdings` as HoldingsView)}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--slate-4)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Text size="2">Individual Holdings</Text>
+                  </button>
                 </div>
               )}
             </div>

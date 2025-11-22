@@ -18,8 +18,8 @@ interface SocialSentimentPanelProps {
 export default function SocialSentimentPanel({ posts, expanded, onClick }: SocialSentimentPanelProps) {
   return (
     <div
-      className="p-3 flex flex-col cursor-pointer"
-      style={{ background: 'var(--slate-2)' }}
+      className="p-3 flex flex-col cursor-pointer relative"
+      style={{ background: 'var(--slate-2)', zIndex: 10 }}
       onClick={onClick}
     >
       <Flex justify="between" align="center" className="mb-2">

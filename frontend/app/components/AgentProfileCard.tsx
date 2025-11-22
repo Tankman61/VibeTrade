@@ -7,8 +7,8 @@ interface AgentProfileCardProps {
 export default function AgentProfileCard({ onClick }: AgentProfileCardProps) {
   return (
     <div
-      className="border-r p-4 cursor-pointer"
-      style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}
+      className="border-r p-4 cursor-pointer relative"
+      style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', zIndex: 10 }}
       onClick={onClick}
     >
       <div className="relative w-full h-full flex items-center justify-center">

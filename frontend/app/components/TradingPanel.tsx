@@ -31,7 +31,7 @@ export default function TradingPanel({
   setTakeProfit
 }: TradingPanelProps) {
   return (
-    <div className="flex flex-col border-r" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+    <div className="flex flex-col border-r h-full overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
       {activeTradingTab === "risk" && <RiskMonitorTab />}
       {activeTradingTab === "trade" && (
         <TradingTab

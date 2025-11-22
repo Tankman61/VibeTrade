@@ -26,16 +26,16 @@ export default function TradingTab({
   setTakeProfit
 }: TradingTabProps) {
   return (
-    <>
+    <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
-      <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+      <div className="px-3 py-3 border-b shrink-0" style={{ borderColor: 'var(--slate-6)' }}>
         <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
           Trading
         </Text>
       </div>
 
       {/* Trade Type */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+      <div className="p-3 border-b shrink-0" style={{ borderColor: 'var(--slate-6)' }}>
         <Text size="1" className="mb-2 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
           Type
         </Text>
@@ -180,7 +180,7 @@ export default function TradingTab({
       </div>
 
       {/* Execute Button */}
-      <div className="p-3 mt-auto">
+      <div className="p-3 mt-auto shrink-0">
         <Button
           size="3"
           className="w-full font-bold cursor-pointer"
@@ -198,6 +198,6 @@ export default function TradingTab({
           </Text>
         </Flex>
       </div>
-    </>
+    </div>
   );
 }

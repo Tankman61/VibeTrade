@@ -10,6 +10,55 @@ import SocialSentimentPanel from "./components/SocialSentimentPanel";
 import TradingPanel from "./components/TradingPanel";
 import IconSidebar from "./components/IconSidebar";
 import AgentChatModal from "./components/AgentChatModal";
+import CryptoPortfolio from "./components/portfolios/CryptoPortfolio";
+import StocksPortfolio from "./components/portfolios/StocksPortfolio";
+import OptionsPortfolio from "./components/portfolios/OptionsPortfolio";
+import ETFsPortfolio from "./components/portfolios/ETFsPortfolio";
+import CryptoHoldings from "./components/holdings/CryptoHoldings";
+import StocksHoldings from "./components/holdings/StocksHoldings";
+import OptionsHoldings from "./components/holdings/OptionsHoldings";
+import ETFsHoldings from "./components/holdings/ETFsHoldings";
+
+type SubredditOption = "All" | "r/wallstreetbets" | "r/cryptocurrency" | "r/bitcoin";
+type PortfolioView = "crypto" | "stocks" | "options" | "etfs" | null;
+type HoldingsView = "crypto-holdings" | "stocks-holdings" | "options-holdings" | "etfs-holdings" | null;
+
+const subredditOptions: SubredditOption[] = ["All", "r/wallstreetbets", "r/cryptocurrency", "r/bitcoin"];
+
+const subredditData: Record<SubredditOption, { 
+  stats: { score: number; bullish: number; bearish: number; neutral: number }; 
+  posts: Array<{ time: string; author: string; snippet: string; sentiment: string }> 
+}> = {
+  "All": {
+    stats: { score: 24, bullish: 68, bearish: 18, neutral: 14 },
+    posts: [
+      { time: "2m ago", author: "u/cryptowhale", snippet: "BTC breaking out. This is not a drill. Load up now before...", sentiment: "bullish" },
+      { time: "5m ago", author: "u/tradingpro", snippet: "Volume looking weak. Expecting pullback to 95k support...", sentiment: "bearish" },
+      { time: "12m ago", author: "u/moonboy", snippet: "100k by Christmas. Diamond hands only. HODL the line!", sentiment: "bullish" },
+    ]
+  },
+  "r/wallstreetbets": {
+    stats: { score: 32, bullish: 75, bearish: 15, neutral: 10 },
+    posts: [
+      { time: "1m ago", author: "u/yolomaster", snippet: "YOLO'd my entire portfolio into BTC calls. Moon or bust! 🚀", sentiment: "bullish" },
+      { time: "8m ago", author: "u/beargang", snippet: "Short squeeze incoming. Bears are getting rekt.", sentiment: "bullish" },
+    ]
+  },
+  "r/cryptocurrency": {
+    stats: { score: 18, bullish: 62, bearish: 22, neutral: 16 },
+    posts: [
+      { time: "3m ago", author: "u/hodler4life", snippet: "This rally feels different. Institutional money is here.", sentiment: "bullish" },
+      { time: "10m ago", author: "u/technicalanalyst", snippet: "RSI showing overbought. Expecting consolidation.", sentiment: "bearish" },
+    ]
+  },
+  "r/bitcoin": {
+    stats: { score: 28, bullish: 71, bearish: 16, neutral: 13 },
+    posts: [
+      { time: "4m ago", author: "u/satoshinakamoto", snippet: "Not your keys, not your coins. Time to self-custody.", sentiment: "bullish" },
+      { time: "15m ago", author: "u/maximilist", snippet: "Number go up technology working as intended.", sentiment: "bullish" },
+    ]
+  }
+};
 
 export default function Home() {
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
@@ -32,6 +81,8 @@ export default function Home() {
   ]);
   const [selectedSubreddit, setSelectedSubreddit] = useState<SubredditOption>(subredditOptions[0]);
   const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
+  const [activePortfolio, setActivePortfolio] = useState<PortfolioView>(null);
+  const [activeHoldings, setActiveHoldings] = useState<HoldingsView>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -88,29 +139,58 @@ export default function Home() {
       <TopBar currentPrice={currentPrice} currentTime={currentTime} />
 
       {/* Side Menu */}
-      <SideMenu isOpen={sideMenuOpen} onToggle={() => setSideMenuOpen(!sideMenuOpen)} />
+      <SideMenu 
+        isOpen={sideMenuOpen} 
+        onToggle={() => setSideMenuOpen(!sideMenuOpen)}
+        onPortfolioSelect={(portfolio) => {
+          setActivePortfolio(portfolio);
+          setActiveHoldings(null);
+          setSideMenuOpen(false);
+        }}
+        onHoldingsSelect={(holdings) => {
+          setActiveHoldings(holdings);
+          setActivePortfolio(null);
+          setSideMenuOpen(false);
+        }}
+      />
 
       <div 
         className="grid h-[calc(100vh-3rem)] gap-0 transition-all duration-200" 
         style={{
           gridTemplateColumns: tradingPanelOpen ? '1fr 280px 40px' : '1fr 40px',
-          marginLeft: sideMenuOpen ? '280px' : '0',
         }}
       >
-        {/* LEFT COLUMN: Chart + Data Feeds */}
+        {/* LEFT COLUMN: Chart/Portfolio/Holdings + Data Feeds */}
         <div className="flex flex-col">
-          <ChartArea />
-
-          {/* Bottom Data Panels */}
-          <div className="h-64 border-t border-r grid grid-cols-[200px_1fr_1fr] gap-0" style={{ borderColor: 'var(--slate-6)' }}>
-            <AgentProfileCard onClick={() => setAgentExpanded(!agentExpanded)} />
-            <PolymarketPanel markets={polymarkets} />
-            <SocialSentimentPanel 
-              posts={redditPosts} 
-              expanded={sentimentExpanded} 
-              onClick={() => setSentimentExpanded(!sentimentExpanded)} 
-            />
-          </div>
+          {activePortfolio === null && activeHoldings === null ? (
+            <>
+              <ChartArea />
+              {/* Bottom Data Panels */}
+              <div className="h-56 border-t border-r grid grid-cols-[200px_1fr_1fr] gap-0" style={{ borderColor: 'var(--slate-6)' }}>
+                <AgentProfileCard onClick={() => setAgentExpanded(!agentExpanded)} />
+                <PolymarketPanel markets={polymarkets} />
+                <SocialSentimentPanel 
+                  posts={redditPosts} 
+                  expanded={sentimentExpanded} 
+                  onClick={() => setSentimentExpanded(!sentimentExpanded)} 
+                />
+              </div>
+            </>
+          ) : activePortfolio !== null ? (
+            <>
+              {activePortfolio === "crypto" && <CryptoPortfolio />}
+              {activePortfolio === "stocks" && <StocksPortfolio />}
+              {activePortfolio === "options" && <OptionsPortfolio />}
+              {activePortfolio === "etfs" && <ETFsPortfolio />}
+            </>
+          ) : (
+            <>
+              {activeHoldings === "crypto-holdings" && <CryptoHoldings />}
+              {activeHoldings === "stocks-holdings" && <StocksHoldings />}
+              {activeHoldings === "options-holdings" && <OptionsHoldings />}
+              {activeHoldings === "etfs-holdings" && <ETFsHoldings />}
+            </>
+          )}
         </div>
 
         {/* TRADING PANEL */}

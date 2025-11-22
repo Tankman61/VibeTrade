@@ -67,21 +67,22 @@ export default function ChartArea() {
 
     chartRef.current = chart;
 
-    // Handle resize
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight || 500,
-        });
-      }
-    };
+    // Handle resize with ResizeObserver for better zoom handling
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!chartContainerRef.current) return;
+      
+      const { width, height } = entries[0].contentRect;
+      chart.applyOptions({
+        width: width,
+        height: height || 500,
+      });
+    });
 
-    window.addEventListener("resize", handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
     // Cleanup
     return () => {
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       chart.remove();
     };
   }, []);

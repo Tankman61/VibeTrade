@@ -60,7 +60,7 @@ export default function TradingChart() {
     // Create chart
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
-      height: 500,
+      height: 700,
       layout: {
         background: { color: "#ffffff" },
         textColor: "#333",
@@ -73,20 +73,21 @@ export default function TradingChart() {
 
     chartRef.current = chart;
 
-    // Handle resize
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
-      }
-    };
+    // Handle resize with ResizeObserver for better responsiveness
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!chartContainerRef.current) return;
 
-    window.addEventListener("resize", handleResize);
+      const { width } = entries[0].contentRect;
+      chart.applyOptions({
+        width: width,
+      });
+    });
+
+    resizeObserver.observe(chartContainerRef.current);
 
     // Cleanup
     return () => {
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       chart.remove();
     };
   }, []);

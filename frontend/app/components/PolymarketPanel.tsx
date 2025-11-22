@@ -15,7 +15,7 @@ interface PolymarketPanelProps {
 
 export default function PolymarketPanel({ markets }: PolymarketPanelProps) {
   return (
-    <div className="border-r p-3 flex flex-col" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+    <div className="border-r p-3 flex flex-col relative" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', zIndex: 10 }}>
       <Flex justify="between" align="center" className="mb-2">
         <Text size="1" weight="bold" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
           Prediction Markets
