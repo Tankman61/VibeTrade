@@ -7,6 +7,6 @@ from pydantic import BaseModel
 
 # TODO: Define AgentState class
 # - messages: conversation history
-# - vibe_score: current market vibe
+# - risk_score: current market vibe
 # - portfolio: balance and lock status
 # - pending_trade: trade awaiting approval

@@ -261,7 +261,8 @@ export default function Home() {
       </div>
 
       <div className="grid h-[calc(100vh-3rem)] gap-0" style={{
-        gridTemplateColumns: tradingPanelOpen ? '1fr 280px 40px' : '1fr 40px'
+        gridTemplateColumns: tradingPanelOpen ? '1fr 280px 40px' : '1fr 40px',
+        gridTemplateRows: '1fr'
       }}>
         {/* LEFT COLUMN: Chart + Data Feeds */}
         <div className="flex flex-col">
@@ -362,7 +363,7 @@ export default function Home() {
               style={{ background: 'var(--slate-2)' }}
               onClick={() => setSentimentExpanded(!sentimentExpanded)}
             >
-              <Flex justify="between" align="center" className="mb-0" style={{ marginBottom: '0.1rem' }}>
+              <Flex justify="between" align="center" className="mb-2">
                 <Text size="1" weight="bold" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
                   Social Sentiment
                 </Text>
@@ -484,12 +485,12 @@ export default function Home() {
 
         {/* TRADING PANEL - Always shows icons on right, expands left */}
         {tradingPanelOpen && (
-          <div className="flex flex-col border-r" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+          <div className="relative flex flex-col h-full border-r" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
             {/* Tab Content Based on Active Tab */}
             {activeTradingTab === "risk" && (
-              <div className="flex flex-col h-full">
+              <div className="absolute inset-0 flex flex-col">
                 {/* Header */}
-                <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+                <div className="flex-shrink-0 px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                   <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
                     Risk Monitor
                   </Text>
@@ -581,9 +582,9 @@ export default function Home() {
             )}
 
             {activeTradingTab === "trade" && (
-              <>
+              <div className="absolute inset-0 flex flex-col">
               {/* Header */}
-              <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+              <div className="flex-shrink-0 px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                 <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
                   Trading
                 </Text>
@@ -755,20 +756,20 @@ export default function Home() {
                 </Flex>
               </div>
               </div>
-              </>
+              </div>
             )}
 
               {/* Portfolio Tab */}
               {activeTradingTab === "portfolio" && (
-                <div className="flex flex-col h-full">
+                <div className="absolute inset-0 flex flex-col">
                   {/* Header */}
-                  <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+                  <div className="flex-shrink-0 px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                     <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
                       Portfolio
                     </Text>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-3 pb-16 scrollbar-thin">
+                  <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
                   {/* Portfolio Summary */}
                   <div className="mb-4 p-4 rounded border" style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-6)' }}>
                     <Text size="1" className="mb-4 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
@@ -879,9 +880,9 @@ export default function Home() {
 
               {/* History Tab */}
               {activeTradingTab === "history" && (
-                <div className="flex flex-col h-full">
+                <div className="absolute inset-0 flex flex-col">
                   {/* Header */}
-                  <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+                  <div className="flex-shrink-0 px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                     <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
                       Trade History
                     </Text>

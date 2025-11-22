@@ -23,8 +23,8 @@ Perfect. Let me regenerate the complete architecture with:
 
 **Loop 2: Trigger Monitor** (Background Worker)
 - **Runs**: Every 1 second
-- **Does**: Reads latest `market_context` → Calculates vibe_score → Decides if agent should interrupt
-- **Output**: Sends WebSocket alerts when vibe_score > 80
+- **Does**: Reads latest `market_context` → Calculates risk_score → Decides if agent should interrupt
+- **Output**: Sends WebSocket alerts when risk_score > 80
 
 **Loop 3: Agent Runtime** (WebSocket-driven)
 - **Runs**: On-demand (when user speaks OR when triggered)
@@ -92,7 +92,7 @@ PENDING_APPROVAL  (Agent called execute_trade, waiting for user)
 **Purpose**: Time-series storage of processed market analysis
 
 **What it stores**:
-- `vibe_score` - 0-100 (calculated by Trigger Monitor)
+- `risk_score` - 0-100 (calculated by Trigger Monitor)
 - `summary` - Human-readable text ("Bitcoin dumping, Reddit panicking")
 - `btc_price` - Current spot price
 - `price_change_24h` - Percentage change
@@ -107,7 +107,7 @@ PENDING_APPROVAL  (Agent called execute_trade, waiting for user)
 **Who reads from it**:
 - Trigger Monitor - Reads latest row every 1 second
 - `get_market_sentiment()` tool - Agent reads latest state
-- `GET /api/vibes` - Frontend displays current vibe_score
+- `GET /api/vibes` - Frontend displays current risk_score
 
 ---
 
@@ -242,11 +242,11 @@ PENDING_APPROVAL  (Agent called execute_trade, waiting for user)
 
 **`GET /api/vibes`**
 - **Returns**: Latest row from `market_context`
-- **Used by**: Frontend vibe_score meter
+- **Used by**: Frontend risk_score meter
 - **Response**:
 ```json
 {
-  "vibe_score": 45,
+  "risk_score": 45,
   "summary": "Market stable, moderate Reddit hype, Polymarket odds holding",
   "btc_price": 96500.00,
   "price_change_24h": -2.3,
@@ -262,7 +262,7 @@ PENDING_APPROVAL  (Agent called execute_trade, waiting for user)
 **`POST /api/trigger-crash`** (Demo button)
 - **Purpose**: Simulate a market crash for demo
 - **Action**: 
-  1. Injects fake data into `market_context` (vibe_score=95, sentiment="PANIC")
+  1. Injects fake data into `market_context` (risk_score=95, sentiment="PANIC")
   2. Trigger Monitor sees this and broadcasts INTERRUPT
 - **Used by**: Hidden keyboard shortcut in frontend (press `C`)
 
@@ -282,7 +282,7 @@ PERSONALITY:
 - Speaks in aggressive trading slang
 
 AUDIO DIRECTIVES (ElevenLabs V3 tags):
-- [shouting] when vibe_score > 80 or user tries to buy a top
+- [shouting] when risk_score > 80 or user tries to buy a top
 - [fast] when listing numbers/odds/prices
 - [whispering] when sharing insights
 - [sighs] when user hesitates or asks obvious questions
@@ -296,13 +296,13 @@ YOUR TOOLS:
 
 CRITICAL RULES:
 - ALWAYS call get_market_sentiment() before giving trading advice
-- If vibe_score > 90, you MUST call lock_user_account()
+- If risk_score > 90, you MUST call lock_user_account()
 - If user wants to buy during PANIC sentiment, refuse and call them out
-- When market is stable (vibe_score < 40), be calmer but still sarcastic
+- When market is stable (risk_score < 40), be calmer but still sarcastic
 
 CONTEXT INJECTION:
 You will receive system messages like:
-"SYSTEM_ALERT: vibe_score=92, Bitcoin down 5%, Polymarket odds collapsed, Reddit sentiment: PANIC"
+"SYSTEM_ALERT: risk_score=92, Bitcoin down 5%, Polymarket odds collapsed, Reddit sentiment: PANIC"
 
 When you see these, INTERRUPT immediately with aggressive warning.
 ```
@@ -318,7 +318,7 @@ When you see these, INTERRUPT immediately with aggressive warning.
 **Returns**:
 ```json
 {
-  "vibe_score": 85,
+  "risk_score": 85,
   "summary": "Bitcoin dumping -5%, Polymarket odds down 15%, Reddit panic keywords: YOLO, Rekt, Loss",
   "btc_price": 91200.00,
   "price_change_24h": -5.2,
@@ -416,7 +416,7 @@ When you see these, INTERRUPT immediately with aggressive warning.
    - If denied: Deletes trade row, returns "Trade cancelled by user"
 
 **When agent uses it**:
-- vibe_score > 90 and agent wants to sell to protect capital
+- risk_score > 90 and agent wants to sell to protect capital
 - User explicitly asks agent to execute a trade
 - Agent sees opportunity and recommends a limit order
 
@@ -449,7 +449,7 @@ UPDATE portfolio SET
 3. Frontend Supabase Realtime subscription detects change, disables buttons
 
 **When agent uses it**:
-- vibe_score > 90 (MUST use)
+- risk_score > 90 (MUST use)
 - User trying to make multiple emotional trades rapidly
 - User ignoring agent's warnings repeatedly
 
@@ -538,7 +538,7 @@ UPDATE portfolio SET
   "message": "MARKET CRASHING! STOP EVERYTHING!"
 }
 ```
-- **When**: Trigger Monitor detects vibe_score > 80
+- **When**: Trigger Monitor detects risk_score > 80
 - **Action**: 
   1. Frontend stops any playing audio
   2. Clears audio queue
@@ -639,7 +639,7 @@ These tags MUST be included in the agent's text output to sound realistic.
 
 | Tag | When to Use | Example |
 |-----|-------------|---------|
-| `[shouting]` | vibe_score > 80, user making bad decision | `[shouting] STOP BUYING!` |
+| `[shouting]` | risk_score > 80, user making bad decision | `[shouting] STOP BUYING!` |
 | `[whispering]` | Sharing insider info, alpha, secrets | `[whispering] The whales are dumping` |
 | `[fast]` | Listing data, numbers, during market chaos | `[fast] Price 96500 down 5 percent` |
 | `[slow]` | Emphasizing important point | `[slow] You. Will. Lose. Everything.` |
@@ -667,12 +667,12 @@ Enhanced (before TTS):
 **Logic**:
 ```python
 def enhance_agent_text(text: str, context: dict) -> str:
-    vibe_score = context['vibe_score']
+    risk_score = context['risk_score']
     
     # Emergency situations
-    if vibe_score > 90:
+    if risk_score > 90:
         text = f"[panicked] {text}"
-    elif vibe_score > 80:
+    elif risk_score > 80:
         text = f"[shouting] {text}"
     
     # Add [fast] to numbers
@@ -710,7 +710,7 @@ def enhance_agent_text(text: str, context: dict) -> str:
 5. Place in `backend/assets/`
 
 **When to Use**:
-- **Trigger Monitor** detects vibe_score > 90 → Plays pre-gen scream immediately
+- **Trigger Monitor** detects risk_score > 90 → Plays pre-gen scream immediately
 - Then follows up with contextual LLM-generated explanation
 
 **Why Pre-Generate**:
@@ -769,10 +769,10 @@ async def handle_user_interrupt():
 
 ### Scenario A: Server-Side Interrupt (Market Crash)
 
-**Trigger**: Trigger Monitor detects vibe_score > 80
+**Trigger**: Trigger Monitor detects risk_score > 80
 
 **Step-by-step**:
-1. Monitor Worker calculates vibe_score = 92
+1. Monitor Worker calculates risk_score = 92
 2. Monitor calls LLM: "Generate urgent alert for: BTC -5%, odds collapsed, Reddit panic"
 3. LLM returns: "URGENT: Bitcoin dumping! Polymarket whales exiting! Reddit screaming SELL!"
 4. Monitor sends WebSocket broadcast:
@@ -786,7 +786,7 @@ async def handle_user_interrupt():
 5. Frontend receives → Stops audio → Plays scream → Flashes screen
 6. Monitor injects System Message into Agent:
 ```
-SYSTEM_ALERT: vibe_score=92. Bitcoin down 5% in 10 minutes. Polymarket odds collapsed 15%. Reddit sentiment: PANIC. Keywords: Liquidation, Rekt, Dump. INTERVENE IMMEDIATELY.
+SYSTEM_ALERT: risk_score=92. Bitcoin down 5% in 10 minutes. Polymarket odds collapsed 15%. Reddit sentiment: PANIC. Keywords: Liquidation, Rekt, Dump. INTERVENE IMMEDIATELY.
 ```
 7. Agent processes message → Calls `get_market_sentiment()` → Decides to lock account or sell
 8. Agent speaks: "[panicked] STOP! I'm locking your account before you panic sell the bottom!"
@@ -855,7 +855,7 @@ SYSTEM_ALERT: vibe_score=92. Bitcoin down 5% in 10 minutes. Polymarket odds coll
 ```
 
 3. **Write to Database**:
-   - Insert into `market_context`: vibe_score, summary, all metrics
+   - Insert into `market_context`: risk_score, summary, all metrics
    - Upsert into `feed_items` (source='POLYMARKET'): Market names, odds, volumes
    - Upsert into `feed_items` (source='REDDIT'): Post text, username, subreddit, sentiment
 
@@ -874,9 +874,9 @@ SYSTEM_ALERT: vibe_score=92. Bitcoin down 5% in 10 minutes. Polymarket odds coll
 1. **Read Latest Context**:
    - Query `market_context` ORDER BY created_at DESC LIMIT 1
 
-2. **Calculate vibe_score** (heuristic formula):
+2. **Calculate risk_score** (heuristic formula):
 ```python
-vibe_score = (
+risk_score = (
   abs(price_change_24h) * 10 +        # Volatility weight
   hype_score * 0.6 +                  # Social sentiment
   abs(polymarket_odds - 0.5) * 40     # Prediction confidence
@@ -885,8 +885,8 @@ vibe_score = (
 ```
 
 3. **Decision Logic**:
-   - If vibe_score < 80: Do nothing, sleep 1s
-   - If vibe_score >= 80: **TRIGGER ALERT**
+   - If risk_score < 80: Do nothing, sleep 1s
+   - If risk_score >= 80: **TRIGGER ALERT**
 
 4. **Alert Flow** (when triggered):
    - Call LLM: "Generate brief urgent alert for agent given this data: <market_context>"
@@ -905,7 +905,7 @@ vibe_score = (
 ```python
 class AgentState:
     messages: List[BaseMessage]      # Conversation history
-    vibe_score: int                  # Latest from market_context
+    risk_score: int                  # Latest from market_context
     portfolio: dict                  # {balance, is_locked}
     pending_trade: Optional[dict]    # Active trade awaiting approval
 ```
@@ -924,7 +924,7 @@ class AgentState:
 **On system alert**:
 - Trigger Monitor injects SystemMessage:
 ```python
-SystemMessage(content="SYSTEM_ALERT: vibe_score=92, market crashing, intervene NOW")
+SystemMessage(content="SYSTEM_ALERT: risk_score=92, market crashing, intervene NOW")
 ```
 - Agent reads message → Calls tools → Speaks warning
 
@@ -1125,8 +1125,8 @@ except Exception as e:
 **Workers**:
 - [ ] Data Ingest writes to market_context every 10s
 - [ ] Data Ingest writes to feed_items (both sources)
-- [ ] Trigger Monitor calculates vibe_score correctly
-- [ ] Trigger Monitor sends INTERRUPT when vibe_score > 80
+- [ ] Trigger Monitor calculates risk_score correctly
+- [ ] Trigger Monitor sends INTERRUPT when risk_score > 80
 
 **Agent**:
 - [ ] get_market_sentiment() returns latest data
@@ -1156,7 +1156,7 @@ except Exception as e:
 - [ ] Press C → Crash triggered → Scream plays → Agent screams
 - [ ] Agent proposes trade → Modal appears
 - [ ] Confirm trade → Order executes
-- [ ] vibe_score > 90 → Account locked
+- [ ] risk_score > 90 → Account locked
 - [ ] Locked state disables frontend buttons
 - [ ] User speaks → Agent listens → Agent responds
 

@@ -29,7 +29,7 @@ CREATE TABLE trades (
 -- 3. MARKET CONTEXT (The AI's Memory)
 CREATE TABLE market_context (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    vibe_score INTEGER NOT NULL, -- 0 to 100
+      INTEGER NOT NULL, -- 0 to 100
     summary TEXT NOT NULL,
     reddit_sentiment TEXT,
     polymarket_odds NUMERIC(5, 4),

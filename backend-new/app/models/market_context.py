@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 # TODO: Define MarketContext model
-# - vibe_score: int (0-100)
+# - risk_score: int (0-100)
 # - summary: str
 # - btc_price: float
 # - price_change_24h: float
