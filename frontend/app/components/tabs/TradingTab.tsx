@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Flex, Text, Button } from "@radix-ui/themes";
+import { api } from "@/app/lib/api";
+import { toast } from "react-hot-toast";
 
 interface TradingTabProps {
   tradeType: "long" | "short";
@@ -25,6 +28,31 @@ export default function TradingTab({
   takeProfit,
   setTakeProfit
 }: TradingTabProps) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    const size = parseFloat(positionSize);
+    if (Number.isNaN(size) || size <= 0) {
+      toast.error("Enter a valid position size");
+      return;
+    }
+    if (submitting) return;
+
+    try {
+      setSubmitting(true);
+      await api.createOrder({
+        ticker: "BTC-USD",
+        side: tradeType === "long" ? "BUY" : "SELL",
+        order_type: "MARKET",
+        amount: size,
+      });
+    } catch (error) {
+      // toast handled in api layer
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
@@ -192,8 +220,10 @@ export default function TradingTab({
             background: tradeType === "long" ? 'var(--green-9)' : 'var(--red-9)',
             color: 'white'
           }}
+          disabled={submitting}
+          onClick={handleSubmit}
         >
-          {tradeType === "long" ? "Open Long Position" : "Open Short Position"}
+          {submitting ? "Submitting..." : tradeType === "long" ? "Open Long Position" : "Open Short Position"}
         </Button>
         <Flex justify="center" align="center" gap="1" className="mt-4">
           <div className="w-1 h-1 rounded-full" style={{ background: 'var(--red-9)' }}></div>
