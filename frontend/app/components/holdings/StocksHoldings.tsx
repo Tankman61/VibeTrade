@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Flex, Text, Button, TextField } from "@radix-ui/themes";
 import { PlusIcon, TrashIcon, ArrowLeftIcon } from "@radix-ui/react-icons";
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
+import { useAlpacaWebSocket } from "@/hooks/useAlpacaWebSocket";
+import type { AlpacaMessage } from "@/lib/websocket";
+import { transformBarToChartData } from "@/lib/alpacaDataTransform";
 
 interface Holding {
   id: string;
@@ -24,6 +27,10 @@ export default function StocksHoldings() {
   ]);
   const [selectedHolding, setSelectedHolding] = useState<Holding | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const [newHolding, setNewHolding] = useState({
     symbol: "",
@@ -49,8 +56,42 @@ export default function StocksHoldings() {
     setHoldings(holdings.filter((h) => h.id !== id));
   };
 
+  // Handle incoming WebSocket messages
+  const handleMessage = (message: AlpacaMessage) => {
+    if (message.type === "connected") {
+      setIsConnected(true);
+      console.log("Connected to stocks stream:", message.message);
+    } else if (message.type === "bar" && selectedHolding && message.data.symbol === selectedHolding.symbol) {
+      setCurrentPrice(message.data.close);
+      
+      // Update chart with new data
+      if (seriesRef.current) {
+        const chartData = transformBarToChartData(message.data);
+        seriesRef.current.update(chartData as any);
+      }
+    } else if (message.type === "error") {
+      console.error("WebSocket error:", message.message);
+      setIsConnected(false);
+    }
+  };
+
+  // WebSocket connection for live prices
+  const { subscribe } = useAlpacaWebSocket({
+    symbols: selectedHolding ? [selectedHolding.symbol] : [],
+    dataType: "stocks",
+    onMessage: handleMessage,
+    autoConnect: true,
+  });
+
   useEffect(() => {
-    if (!selectedHolding || !chartContainerRef.current) return;
+    if (!selectedHolding || !chartContainerRef.current) {
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
+      }
+      return;
+    }
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -69,6 +110,8 @@ export default function StocksHoldings() {
       },
     });
 
+    chartRef.current = chart;
+
     const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#22c55e',
       downColor: '#ef4444',
@@ -76,6 +119,8 @@ export default function StocksHoldings() {
       wickUpColor: '#22c55e',
       wickDownColor: '#ef4444',
     });
+
+    seriesRef.current = candlestickSeries;
 
     const generateData = () => {
       const data = [];
@@ -115,7 +160,11 @@ export default function StocksHoldings() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      chart.remove();
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
+      }
     };
   }, [selectedHolding]);
 
@@ -155,10 +204,19 @@ export default function StocksHoldings() {
           </div>
           <div>
             <Text size="2" className="mb-1 block" style={{ color: 'var(--slate-11)' }}>Current Price</Text>
-            <Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>${(parseFloat(selectedHolding.avgPrice.replace(/,/g, '')) * 1.12).toFixed(2)}</Text>
+            <Text size="5" weight="bold" style={{ color: currentPrice ? 'var(--green-11)' : 'var(--slate-11)' }}>
+              {currentPrice ? `$${currentPrice.toLocaleString()}` : 'Loading...'}
+            </Text>
+            {isConnected && <Text size="1" style={{ color: 'var(--green-11)' }}>● Live</Text>}
           </div>
           <div>
             <Text size="2" className="mb-1 block" style={{ color: 'var(--slate-11)' }}>Total Value</Text>
+            <Text size="5" weight="bold" style={{ color: 'var(--slate-12)' }}>
+              ${currentPrice 
+                ? (parseFloat(selectedHolding.quantity.replace(/,/g, '')) * currentPrice).toLocaleString()
+                : (parseFloat(selectedHolding.quantity.replace(/,/g, '')) * parseFloat(selectedHolding.avgPrice.replace(/,/g, '')) * 1.12).toFixed(2)
+              }
+            </Text>
             <Text size="5" weight="bold" style={{ color: 'var(--slate-12)' }}>${(parseFloat(selectedHolding.quantity.replace(/,/g, '')) * parseFloat(selectedHolding.avgPrice.replace(/,/g, '')) * 1.12).toLocaleString()}</Text>
           </div>
         </div>
@@ -166,7 +224,7 @@ export default function StocksHoldings() {
         {/* Chart */}
         <div className="p-6">
           <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
-            Price Chart (Hardcoded - Alpaca Integration Coming)
+            Live Price Chart {isConnected ? '(Connected to Alpaca)' : '(Connecting...)'}
           </Text>
           <div ref={chartContainerRef} className="w-full" />
         </div>

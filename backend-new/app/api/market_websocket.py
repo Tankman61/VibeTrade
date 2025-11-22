@@ -48,23 +48,28 @@ class ConnectionManager:
         """Subscribe a connection to specific symbols"""
         if websocket not in self.connection_symbols:
             self.connection_symbols[websocket] = set()
-            
-        self.connection_symbols[websocket].update(symbols)
         
-        # Subscribe to Alpaca for these symbols if not already subscribed
-        if data_type == "crypto":
-            # Convert to Alpaca format (BTC/USD)
-            alpaca_symbols = [f"{s}/USD" if "/" not in s else s for s in symbols]
-            await alpaca_service.subscribe_crypto(alpaca_symbols)
-        elif data_type == "stocks":
-            await alpaca_service.subscribe_stocks(symbols)
+        # Normalize symbols (remove any /USD or USD suffixes for storage)
+        normalized_symbols = []
+        for s in symbols:
+            clean_s = s.replace("/USD", "").replace("USD", "").replace("/", "")
+            normalized_symbols.append(clean_s)
             
-        logger.info(f"Subscribed {data_type} connection to symbols: {symbols}")
+        self.connection_symbols[websocket].update(normalized_symbols)
+        
+        # Subscribe to Alpaca for these symbols
+        if data_type == "crypto":
+            # Alpaca expects clean symbols (BTC, ETH, etc.)
+            await alpaca_service.subscribe_crypto(normalized_symbols)
+        elif data_type == "stocks":
+            await alpaca_service.subscribe_stocks(normalized_symbols)
+            
+        logger.info(f"Subscribed {data_type} connection to symbols: {normalized_symbols}")
         
         # Send confirmation
         await websocket.send_json({
             "type": "subscribed",
-            "symbols": symbols
+            "symbols": normalized_symbols
         })
         
     async def unsubscribe(self, websocket: WebSocket, symbols: list[str]):

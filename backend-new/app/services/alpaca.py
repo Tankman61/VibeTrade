@@ -158,31 +158,51 @@ class AlpacaMarketDataService:
         if not self.api_key or not self.secret_key:
             logger.warning("Cannot subscribe: Alpaca API keys not configured")
             return
+        
+        # Convert symbols to Alpaca format (BTC -> BTC/USD)
+        formatted_symbols = []
+        for symbol in symbols:
+            # Remove /USD if already present, then add it back
+            clean_symbol = symbol.replace("/USD", "").replace("USD", "")
+            formatted_symbols.append(f"{clean_symbol}/USD")
             
         # Initialize crypto stream if not already done
         if self.crypto_stream is None:
-            self.crypto_stream = CryptoDataStream(
-                api_key=self.api_key,
-                secret_key=self.secret_key
-            )
-            
-            # Register handlers
-            self.crypto_stream.subscribe_bars(self._handle_crypto_bar, *symbols)
-            self.crypto_stream.subscribe_trades(self._handle_crypto_trade, *symbols)
+            try:
+                self.crypto_stream = CryptoDataStream(
+                    api_key=self.api_key,
+                    secret_key=self.secret_key
+                )
+                
+                # Subscribe to bars and trades with handler methods
+                self.crypto_stream.subscribe_bars(self._handle_crypto_bar, *formatted_symbols)
+                self.crypto_stream.subscribe_trades(self._handle_crypto_trade, *formatted_symbols)
+                
+                # Track subscribed symbols
+                self.crypto_symbols.update(formatted_symbols)
+                
+                # Start stream task - run() starts the WebSocket connection
+                if self.crypto_task is None or self.crypto_task.done():
+                    self.crypto_task = asyncio.create_task(self.crypto_stream.run())
+                    logger.info(f"Started crypto stream task")
+                
+            except Exception as e:
+                logger.error(f"Error initializing crypto stream: {e}")
+                import traceback
+                traceback.print_exc()
+                return
             
         else:
-            # Subscribe to new symbols
-            self.crypto_stream.subscribe_bars(self._handle_crypto_bar, *symbols)
-            self.crypto_stream.subscribe_trades(self._handle_crypto_trade, *symbols)
-        
-        # Track subscribed symbols
-        self.crypto_symbols.update(symbols)
-        
-        # Start stream if not running
-        if self.crypto_task is None or self.crypto_task.done():
-            self.crypto_task = asyncio.create_task(self._run_crypto_stream())
+            # Subscribe to new symbols on existing stream
+            try:
+                self.crypto_stream.subscribe_bars(self._handle_crypto_bar, *formatted_symbols)
+                self.crypto_stream.subscribe_trades(self._handle_crypto_trade, *formatted_symbols)
+                self.crypto_symbols.update(formatted_symbols)
+            except Exception as e:
+                logger.error(f"Error subscribing to crypto symbols: {e}")
+                return
             
-        logger.info(f"Subscribed to crypto symbols: {symbols}")
+        logger.info(f"Subscribed to crypto symbols: {formatted_symbols}")
         
     async def subscribe_stocks(self, symbols: list[str]):
         """Subscribe to stock symbols"""
@@ -192,44 +212,43 @@ class AlpacaMarketDataService:
             
         # Initialize stock stream if not already done
         if self.stock_stream is None:
-            self.stock_stream = StockDataStream(
-                api_key=self.api_key,
-                secret_key=self.secret_key
-            )
-            
-            # Register handlers
-            self.stock_stream.subscribe_bars(self._handle_stock_bar, *symbols)
-            self.stock_stream.subscribe_trades(self._handle_stock_trade, *symbols)
+            try:
+                self.stock_stream = StockDataStream(
+                    api_key=self.api_key,
+                    secret_key=self.secret_key
+                )
+                
+                # Subscribe to bars and trades with handler methods
+                self.stock_stream.subscribe_bars(self._handle_stock_bar, *symbols)
+                self.stock_stream.subscribe_trades(self._handle_stock_trade, *symbols)
+                
+                # Track subscribed symbols
+                self.stock_symbols.update(symbols)
+                
+                # Start stream task - run() starts the WebSocket connection
+                if self.stock_task is None or self.stock_task.done():
+                    self.stock_task = asyncio.create_task(self.stock_stream.run())
+                    logger.info(f"Started stock stream task")
+                
+            except Exception as e:
+                logger.error(f"Error initializing stock stream: {e}")
+                import traceback
+                traceback.print_exc()
+                return
             
         else:
-            # Subscribe to new symbols
-            self.stock_stream.subscribe_bars(self._handle_stock_bar, *symbols)
-            self.stock_stream.subscribe_trades(self._handle_stock_trade, *symbols)
-        
-        # Track subscribed symbols
-        self.stock_symbols.update(symbols)
-        
-        # Start stream if not running
-        if self.stock_task is None or self.stock_task.done():
-            self.stock_task = asyncio.create_task(self._run_stock_stream())
+            # Subscribe to new symbols on existing stream
+            try:
+                self.stock_stream.subscribe_bars(self._handle_stock_bar, *symbols)
+                self.stock_stream.subscribe_trades(self._handle_stock_trade, *symbols)
+                self.stock_symbols.update(symbols)
+            except Exception as e:
+                logger.error(f"Error subscribing to stock symbols: {e}")
+                return
             
         logger.info(f"Subscribed to stock symbols: {symbols}")
         
-    async def _run_crypto_stream(self):
-        """Run the crypto data stream"""
-        try:
-            logger.info("Starting Alpaca crypto data stream")
-            await self.crypto_stream.run()
-        except Exception as e:
-            logger.error(f"Crypto stream error: {e}")
-            
-    async def _run_stock_stream(self):
-        """Run the stock data stream"""
-        try:
-            logger.info("Starting Alpaca stock data stream")
-            await self.stock_stream.run()
-        except Exception as e:
-            logger.error(f"Stock stream error: {e}")
+
             
     def get_price(self, symbol: str) -> Optional[float]:
         """Get the current price for a symbol"""

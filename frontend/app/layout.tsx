@@ -3,7 +3,6 @@ import { Manrope } from "next/font/google";
 import "@radix-ui/themes/styles.css";
 import "./globals.css";
 import { Theme } from "@radix-ui/themes";
-import ToastProvider from "./components/ToastProvider";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -32,7 +31,6 @@ export default function RootLayout({
           scaling="100%"
         >
           {children}
-          <ToastProvider />
         </Theme>
       </body>
     </html>
