@@ -117,7 +117,9 @@ export default function RiskMonitorTab() {
             Watchlist
           </Text>
           {data.watchlist.length === 0 ? (
-            <Text size="1" style={{ color: 'var(--slate-11)' }}>No watchlist data</Text>
+            <Text size="1" className="block mt-1" style={{ color: 'var(--slate-11)' }}>
+              No watchlist data
+            </Text>
           ) : (
             <div className="space-y-1.5">
               {data.watchlist.map((item, idx) => (

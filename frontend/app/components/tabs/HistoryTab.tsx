@@ -25,26 +25,21 @@ export default function HistoryTab() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <Text size="2" style={{ color: 'var(--slate-11)' }}>Loading...</Text>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex flex-col h-full items-center justify-center">
-        <Text size="2" style={{ color: 'var(--slate-11)' }}>Loading...</Text>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
-        <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
-          Trade History
-        </Text>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
         {history.length === 0 ? (
-          <Text size="1" style={{ color: 'var(--slate-11)' }}>No trade history</Text>
+          <Text size="1" className="block mt-1" style={{ color: 'var(--slate-11)' }}>
+            No trade history
+          </Text>
         ) : (
           <div className="space-y-2">
             {history.map((trade) => (
@@ -85,6 +80,17 @@ export default function HistoryTab() {
           </div>
         )}
       </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+        <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
+          Trade History
+        </Text>
+      </div>
+      {renderContent()}
     </div>
   );
 }

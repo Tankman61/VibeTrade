@@ -144,8 +144,15 @@ class ApiService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `API Error: ${response.statusText}`);
+        let message = response.statusText || 'Request failed';
+        try {
+          const errorBody = await response.json();
+          message = errorBody?.detail || JSON.stringify(errorBody);
+        } catch {
+          const fallback = await response.text();
+          if (fallback) message = fallback;
+        }
+        throw new Error(`[${response.status}] ${message}`);
       }
 
       const data = await response.json();

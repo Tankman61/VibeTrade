@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Text, Flex, DropdownMenu, Button, ChevronDownIcon } from "@radix-ui/themes";
+import { Text, Flex, DropdownMenu, Button, ChevronDownIcon, Badge } from "@radix-ui/themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChartIcon, DashboardIcon, ActivityLogIcon, ExclamationTriangleIcon, GearIcon } from "@radix-ui/react-icons";
 import SideMenu from "./components/SideMenu";
@@ -39,6 +39,7 @@ export default function Home() {
   const [tradingPanelOpen, setTradingPanelOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTradingTab, setActiveTradingTab] = useState<"risk" | "trade" | "portfolio" | "history">("trade");
+  const [hoveredIcon, setHoveredIcon] = useState<"risk" | "trade" | "portfolio" | "history" | "settings" | null>(null);
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
   const [currentPrice, setCurrentPrice] = useState("0");
   const [priceChange, setPriceChange] = useState("0");
@@ -424,12 +425,16 @@ export default function Home() {
               onClick={() => { setActiveTradingTab("risk"); setTradingPanelOpen(true); }}
               className="w-8 h-8 rounded flex items-center justify-center transition-colors relative"
               style={{
-                background: activeTradingTab === "risk" && tradingPanelOpen
-                  ? (riskLevel === "high" ? 'var(--red-5)' : riskLevel === "medium" ? 'var(--yellow-5)' : 'var(--green-5)')
-                  : (riskLevel === "high" ? 'var(--red-4)' : riskLevel === "medium" ? 'var(--yellow-4)' : 'var(--green-4)'),
+                background: hoveredIcon === "risk"
+                  ? (riskLevel === "high" ? 'var(--red-6)' : riskLevel === "medium" ? 'var(--yellow-6)' : 'var(--green-6)')
+                  : activeTradingTab === "risk" && tradingPanelOpen
+                    ? (riskLevel === "high" ? 'var(--red-5)' : riskLevel === "medium" ? 'var(--yellow-5)' : 'var(--green-5)')
+                    : (riskLevel === "high" ? 'var(--red-4)' : riskLevel === "medium" ? 'var(--yellow-4)' : 'var(--green-4)'),
                 color: riskLevel === "high" ? 'var(--red-11)' : riskLevel === "medium" ? 'var(--yellow-11)' : 'var(--green-11)'
               }}
               title={`Risk Monitor: ${riskLevel === "high" ? "High" : riskLevel === "medium" ? "Medium" : "Low"} Risk`}
+              onMouseEnter={() => setHoveredIcon("risk")}
+              onMouseLeave={() => setHoveredIcon(null)}
             >
               <ExclamationTriangleIcon width="18" height="18" />
               {riskLevel === "high" && (
@@ -438,20 +443,60 @@ export default function Home() {
               )}
             </button>
 
-            <button onClick={() => { setActiveTradingTab("trade"); setTradingPanelOpen(true); }} className="w-8 h-8 rounded flex items-center justify-center transition-colors" style={{ background: 'transparent', color: 'var(--slate-11)' }} title="Trading">
+            <button
+              onClick={() => { setActiveTradingTab("trade"); setTradingPanelOpen(true); }}
+              className="w-8 h-8 rounded flex items-center justify-center transition-colors"
+              style={{
+                background: hoveredIcon === "trade" ? 'var(--slate-4)' : 'transparent',
+                color: hoveredIcon === "trade" || activeTradingTab === "trade" ? 'var(--slate-12)' : 'var(--slate-11)'
+              }}
+              title="Trading"
+              onMouseEnter={() => setHoveredIcon("trade")}
+              onMouseLeave={() => setHoveredIcon(null)}
+            >
               <BarChartIcon width="18" height="18" />
             </button>
 
-            <button onClick={() => { setActiveTradingTab("portfolio"); setTradingPanelOpen(true); }} className="w-8 h-8 rounded flex items-center justify-center transition-colors" style={{ background: 'transparent', color: 'var(--slate-11)' }} title="Portfolio">
+            <button
+              onClick={() => { setActiveTradingTab("portfolio"); setTradingPanelOpen(true); }}
+              className="w-8 h-8 rounded flex items-center justify-center transition-colors"
+              style={{
+                background: hoveredIcon === "portfolio" ? 'var(--slate-4)' : 'transparent',
+                color: hoveredIcon === "portfolio" || activeTradingTab === "portfolio" ? 'var(--slate-12)' : 'var(--slate-11)'
+              }}
+              title="Portfolio"
+              onMouseEnter={() => setHoveredIcon("portfolio")}
+              onMouseLeave={() => setHoveredIcon(null)}
+            >
               <DashboardIcon width="18" height="18" />
             </button>
 
-            <button onClick={() => { setActiveTradingTab("history"); setTradingPanelOpen(true); }} className="w-8 h-8 rounded flex items-center justify-center transition-colors" style={{ background: 'transparent', color: 'var(--slate-11)' }} title="History">
+            <button
+              onClick={() => { setActiveTradingTab("history"); setTradingPanelOpen(true); }}
+              className="w-8 h-8 rounded flex items-center justify-center transition-colors"
+              style={{
+                background: hoveredIcon === "history" ? 'var(--slate-4)' : 'transparent',
+                color: hoveredIcon === "history" || activeTradingTab === "history" ? 'var(--slate-12)' : 'var(--slate-11)'
+              }}
+              title="History"
+              onMouseEnter={() => setHoveredIcon("history")}
+              onMouseLeave={() => setHoveredIcon(null)}
+            >
               <ActivityLogIcon width="18" height="18" />
             </button>
 
             <div className="mt-auto">
-              <button onClick={() => setSettingsOpen(true)} className="w-8 h-8 rounded flex items-center justify-center transition-colors" style={{ background: 'transparent', color: 'var(--slate-11)' }} title="Settings">
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="w-8 h-8 rounded flex items-center justify-center transition-colors"
+                style={{
+                  background: hoveredIcon === "settings" ? 'var(--slate-4)' : 'transparent',
+                  color: hoveredIcon === "settings" ? 'var(--slate-12)' : 'var(--slate-11)'
+                }}
+                title="Settings"
+                onMouseEnter={() => setHoveredIcon("settings")}
+                onMouseLeave={() => setHoveredIcon(null)}
+              >
                 <GearIcon width="18" height="18" />
               </button>
             </div>
@@ -502,6 +547,148 @@ export default function Home() {
                     <Flex gap="2">
                       <input type="text" placeholder="Ask me about the markets..." value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} className="flex-1 px-3 py-2 rounded-lg border outline-none" style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-7)', color: 'var(--slate-12)' }} />
                       <Button onClick={handleSendMessage} style={{ background: 'var(--red-9)', color: 'white', cursor: 'pointer' }}>Send</Button>
+                    </Flex>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50"
+              style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+              onClick={() => setSettingsOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-8"
+              onClick={() => setSettingsOpen(false)}
+            >
+              <div
+                className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-lg shadow-2xl border"
+                style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="h-full flex flex-col">
+                  <div className="p-4 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+                    <Flex justify="between" align="center">
+                      <Text size="5" weight="bold" style={{ color: 'var(--slate-12)' }}>
+                        Settings
+                      </Text>
+                      <button
+                        className="w-8 h-8 flex items-center justify-center rounded-lg"
+                        onClick={() => setSettingsOpen(false)}
+                      >
+                        <Text size="4">✕</Text>
+                      </button>
+                    </Flex>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+                    <div>
+                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                        AI Agent Configuration
+                      </Text>
+                      <div className="space-y-4">
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Flex justify="between" align="center" className="mb-2">
+                            <div>
+                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Enable Voice Alerts</Text>
+                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Agent will speak when anomalies are detected</Text>
+                            </div>
+                            <input type="checkbox" defaultChecked className="w-5 h-5" />
+                          </Flex>
+                        </div>
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Flex justify="between" align="center" className="mb-2">
+                            <div>
+                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Auto-Interrupt Trading</Text>
+                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Block trades when risk level is critical</Text>
+                            </div>
+                            <input type="checkbox" className="w-5 h-5" />
+                          </Flex>
+                        </div>
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Text size="2" weight="medium" className="mb-2 block" style={{ color: 'var(--slate-12)' }}>Risk Threshold</Text>
+                          <Text size="1" className="mb-3 block" style={{ color: 'var(--slate-11)' }}>Alert when risk level exceeds</Text>
+                          <input type="range" min="0" max="100" defaultValue="70" className="w-full" style={{ accentColor: 'var(--red-9)' }} />
+                          <Flex justify="between" className="mt-2">
+                            <Text size="1" style={{ color: 'var(--slate-11)' }}>Low</Text>
+                            <Text size="1" style={{ color: 'var(--slate-11)' }}>High</Text>
+                          </Flex>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                        Trading Preferences
+                      </Text>
+                      <div className="space-y-4">
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Flex justify="between" align="center" className="mb-2">
+                            <div>
+                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Confirm Before Execute</Text>
+                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Require confirmation for all trades</Text>
+                            </div>
+                            <input type="checkbox" defaultChecked className="w-5 h-5" />
+                          </Flex>
+                        </div>
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Text size="2" weight="medium" className="mb-2 block" style={{ color: 'var(--slate-12)' }}>Default Position Size</Text>
+                          <input
+                            type="text"
+                            defaultValue="0.5"
+                            className="w-full px-3 py-2 rounded border font-mono"
+                            style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-7)', color: 'var(--slate-12)' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                        Data Sources
+                      </Text>
+                      <div className="space-y-4">
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Flex justify="between" align="center">
+                            <div>
+                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Polymarket Integration</Text>
+                              <Text size="1" style={{ color: 'var(--green-11)' }}>Connected</Text>
+                            </div>
+                            <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
+                          </Flex>
+                        </div>
+                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                          <Flex justify="between" align="center">
+                            <div>
+                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Reddit Sentiment</Text>
+                              <Text size="1" style={{ color: 'var(--green-11)' }}>Connected</Text>
+                            </div>
+                            <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
+                          </Flex>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t" style={{ borderColor: 'var(--slate-6)' }}>
+                    <Flex justify="end" gap="3">
+                      <Button onClick={() => setSettingsOpen(false)} style={{ background: 'var(--slate-4)', color: 'var(--slate-12)' }}>
+                        Cancel
+                      </Button>
+                      <Button onClick={() => setSettingsOpen(false)} style={{ background: 'var(--blue-9)', color: 'white' }}>
+                        Save Changes
+                      </Button>
                     </Flex>
                   </div>
                 </div>

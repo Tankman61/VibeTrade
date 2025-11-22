@@ -49,14 +49,14 @@ export default function PortfolioTab() {
     return (
       <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
         {/* Portfolio Summary */}
-        <div className="mb-4 p-3 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-          <Text size="1" className="mb-2 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
+        <div className="mb-5 p-3 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+          <Text size="1" className="mb-1 uppercase tracking-wider block" style={{ color: 'var(--slate-11)' }}>
             Total Portfolio Value
           </Text>
-          <Text size="6" weight="bold" className="font-mono" style={{ color: 'var(--slate-12)' }}>
+          <Text size="6" weight="bold" className="font-mono block" style={{ color: 'var(--slate-12)' }}>
             ${portfolio.total_value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </Text>
-          <Flex align="center" gap="1" className="mt-1">
+          <Flex align="center" gap="1" className="mt-2">
             <Text size="2" className="font-mono" style={{ color: pnlColor }}>
               {portfolio.pnl_total >= 0 ? '+' : ''}${portfolio.pnl_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
@@ -67,11 +67,13 @@ export default function PortfolioTab() {
         </div>
 
         {/* Open Positions */}
-        <Text size="1" className="mb-2 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
+        <Text size="1" className="mb-2 mt-4 uppercase tracking-wider block" style={{ color: 'var(--slate-11)' }}>
           Open Positions
         </Text>
         {positions.length === 0 ? (
-          <Text size="1" className="mb-4" style={{ color: 'var(--slate-11)' }}>No open positions</Text>
+          <Text size="1" className="mb-4 block" style={{ color: 'var(--slate-11)' }}>
+            No open positions
+          </Text>
         ) : (
           <div className="space-y-2 mb-4">
             {positions.map((position) => (
@@ -113,7 +115,9 @@ export default function PortfolioTab() {
           Open Orders
         </Text>
         {orders.length === 0 ? (
-          <Text size="1" style={{ color: 'var(--slate-11)' }}>No open orders</Text>
+          <Text size="1" className="block mt-1" style={{ color: 'var(--slate-11)' }}>
+            No open orders
+          </Text>
         ) : (
           <div className="space-y-2">
             {orders.map((order) => (
