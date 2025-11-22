@@ -10,7 +10,9 @@ from app.services.alpaca import alpaca_service
 from app.services.alpaca_trading import trading_service
 from app.api.market_websocket import router as market_ws_router, broadcast_price_update
 from app.api.trading import router as trading_router
-from app.api.placeholders import router as placeholder_router
+from app.api.portfolio import router as portfolio_router
+from app.api.orders import router as orders_router
+from app.api.market_data import router as market_data_router
 
 # Configure logging
 logging.basicConfig(
@@ -57,13 +59,9 @@ app.add_middleware(
 # Register routers
 app.include_router(market_ws_router, tags=["market-data"])
 app.include_router(trading_router, tags=["trading"])
-app.include_router(placeholder_router, tags=["placeholders"])
-
-# Import other routers as needed (commented out - require Supabase)
-# from app.api import portfolio, orders, market_data
-# app.include_router(portfolio.router, prefix="/api", tags=["portfolio"])
-# app.include_router(orders.router, prefix="/api", tags=["orders"])
-# app.include_router(market_data.router, prefix="/api", tags=["market"])
+app.include_router(portfolio_router, prefix="/api", tags=["portfolio"])
+app.include_router(orders_router, prefix="/api", tags=["orders"])
+app.include_router(market_data_router, prefix="/api", tags=["market"])
 
 @app.get("/")
 async def root():

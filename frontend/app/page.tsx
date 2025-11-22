@@ -68,19 +68,34 @@ export default function Home() {
     const fetchPriceAndRisk = async () => {
       try {
         const riskData = await api.getRiskMonitor();
-        setCurrentPrice(riskData.market_overview.btc_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        setPriceChange(riskData.market_overview.price_change_24h.toFixed(2));
+        const market = riskData?.market_overview;
 
-        // Set risk level based on score
-        if (riskData.risk_level.score < 40) {
+        if (market) {
+          setCurrentPrice(
+            market.btc_price.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          );
+          setPriceChange(market.price_change_24h.toFixed(2));
+        } else {
+          setCurrentPrice("0.00");
+          setPriceChange("0.00");
+        }
+
+        const score = riskData?.risk_level?.score ?? 0;
+        if (score < 40) {
           setRiskLevel("low");
-        } else if (riskData.risk_level.score < 70) {
+        } else if (score < 70) {
           setRiskLevel("medium");
         } else {
           setRiskLevel("high");
         }
       } catch (error) {
         console.error("Failed to fetch price and risk:", error);
+        setCurrentPrice("0.00");
+        setPriceChange("0.00");
+        setRiskLevel("low");
       }
     };
 
@@ -94,9 +109,10 @@ export default function Home() {
     const fetchReddit = async () => {
       try {
         const posts = await api.getReddit(selectedSubreddit);
-        setRedditPosts(posts);
+        setRedditPosts(Array.isArray(posts) ? posts : []);
       } catch (error) {
         console.error("Failed to fetch Reddit posts:", error);
+        setRedditPosts([]);
       } finally {
         setLoadingReddit(false);
       }
@@ -322,18 +338,18 @@ export default function Home() {
                           <div>
                             <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Bullish/Bearish Ratio</Text>
                             <Flex align="baseline" gap="1">
-                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--green-11)' }}>{sentimentStats.bullish}</Text>
+                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--green-11)' }}>{sentimentStats.bullish ?? 0}</Text>
                               <Text size="2" style={{ color: 'var(--slate-11)' }}>/</Text>
-                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--red-10)' }}>{sentimentStats.bearish}</Text>
+                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--red-10)' }}>{sentimentStats.bearish ?? 0}</Text>
                             </Flex>
                           </div>
                           <div>
                             <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Sentiment Score</Text>
-                            <Text size="4" weight="bold" className="font-mono" style={{ color: sentimentStats.score >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>{sentimentScoreLabel}</Text>
+                            <Text size="4" weight="bold" className="font-mono" style={{ color: (sentimentStats.score ?? 0) >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>{sentimentScoreLabel}</Text>
                           </div>
                           <div>
                             <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Post Volume (24h)</Text>
-                            <Text size="4" weight="bold" className="font-mono" style={{ color: 'var(--slate-12)' }}>{sentimentStats.volume}</Text>
+                            <Text size="4" weight="bold" className="font-mono" style={{ color: 'var(--slate-12)' }}>{sentimentStats.volume || "0"}</Text>
                           </div>
                         </Flex>
                       )}

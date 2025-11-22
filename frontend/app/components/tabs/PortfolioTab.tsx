@@ -9,6 +9,7 @@ export default function PortfolioTab() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -20,8 +21,13 @@ export default function PortfolioTab() {
       setPortfolio(portfolioData);
       setPositions(positionsData);
       setOrders(ordersData);
+      setError(null);
     } catch (error) {
       console.error("Failed to fetch portfolio data:", error);
+      setError("No trading data available yet.");
+      setPortfolio(null);
+      setPositions([]);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -34,11 +40,21 @@ export default function PortfolioTab() {
   }, []);
 
   const renderContent = () => {
-    if (loading || !portfolio) {
+    if (loading) {
       return (
         <div className="flex-1 flex items-center justify-center">
           <Text size="2" style={{ color: 'var(--slate-11)' }}>
-            {loading ? "Loading..." : "No portfolio data"}
+            Loading...
+          </Text>
+        </div>
+      );
+    }
+
+    if (!portfolio) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <Text size="2" style={{ color: 'var(--slate-11)' }}>
+            No portfolio data
           </Text>
         </div>
       );
