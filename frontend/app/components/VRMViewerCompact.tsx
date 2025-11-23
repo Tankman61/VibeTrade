@@ -113,9 +113,8 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
   }, []);
 
   // Load landing animation (hip hop dance)
-  const loadLandingAnimation = async (vrm: any, mixer: THREE.AnimationMixer) => {
+  const loadLandingAnimation = (vrm: any, mixer: THREE.AnimationMixer) => {
     try {
-      const { retargetAnimation } = await import('vrm-mixamo-retarget');
       const fbxLoader = new FBXLoader();
 
       fbxLoader.load(
@@ -159,7 +158,7 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
         }
       );
     } catch (error) {
-      console.error('Error loading retargetAnimation for landing:', error);
+      console.error('Error in loadLandingAnimation:', error);
     }
   };
 
