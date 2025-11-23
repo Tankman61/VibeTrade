@@ -4,7 +4,7 @@ Handles WebSocket connections from frontend and broadcasts live price updates
 """
 import asyncio
 from typing import Dict, Set
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 import logging
 import json
 
@@ -275,9 +275,10 @@ async def get_symbol_price(symbol: str):
     """Get current price for a specific symbol (from Finnhub)"""
     symbol_upper = symbol.upper()
     price = finnhub_service.get_price(symbol_upper)
-    
+
     if price is None:
-        return {"error": "Symbol not found or not subscribed"}, 404
+        raise HTTPException(status_code=404, detail="Symbol not found or not subscribed")
+
     return {
         "symbol": symbol_upper,
         "price": price

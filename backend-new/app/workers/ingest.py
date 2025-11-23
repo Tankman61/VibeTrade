@@ -9,6 +9,10 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any, List
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from app.services.finnhub import get_btc_data  # SOURCE OF TRUTH for BTC price
 from app.services.polymarket import get_polymarket_client

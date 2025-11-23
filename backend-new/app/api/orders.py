@@ -4,10 +4,12 @@ Maps legacy /api/orders routes to Alpaca paper trading
 """
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
+from datetime import datetime
 
 from app.services.alpaca_trading import trading_service
 from app.api.market_websocket import manager
+from app.services.supabase import get_supabase
 
 router = APIRouter()
 
@@ -31,6 +33,45 @@ def _format_symbol(symbol: str) -> str:
 
 def _normalize_symbol(ticker: str) -> str:
     return ticker.replace("-", "/")
+
+
+def _check_account_lock() -> None:
+    """
+    Check if trading account is locked. Raises HTTPException if locked.
+    Used to enforce emergency lockout from lock_user_account() tool.
+    """
+    db = get_supabase()
+    result = db.client.table("portfolio").select("is_locked, lock_reason, lock_expires_at").limit(1).execute()
+
+    if not result.data:
+        return  # No portfolio record, allow trade
+
+    lock_state = result.data[0]
+    is_locked = lock_state.get("is_locked", False)
+
+    # Check if lock has expired
+    if is_locked:
+        lock_expires_at = lock_state.get("lock_expires_at")
+        if lock_expires_at:
+            try:
+                expiry = datetime.fromisoformat(lock_expires_at.replace("Z", "+00:00"))
+                if datetime.utcnow() > expiry.replace(tzinfo=None):
+                    # Lock expired, auto-unlock
+                    db.client.table("portfolio").update({
+                        "is_locked": False,
+                        "lock_reason": None,
+                        "lock_expires_at": None
+                    }).eq("id", lock_state.get("id")).execute()
+                    return  # Lock expired, allow trade
+            except (ValueError, AttributeError):
+                pass  # Invalid date format, treat as locked
+
+        # Account is locked and not expired
+        reason = lock_state.get("lock_reason", "Emergency lockout active")
+        raise HTTPException(
+            status_code=403,
+            detail=f"🔒 Trading locked: {reason}"
+        )
 
 
 @router.get("/orders")
@@ -61,6 +102,9 @@ async def get_orders(status: str = Query(default="open", regex="^(open|closed|al
 async def create_order(order: CreateOrderRequest):
     if not trading_service.is_enabled():
         raise HTTPException(status_code=503, detail="Trading service not enabled")
+
+    # Check if account is locked (enforces lock_user_account() tool)
+    _check_account_lock()
 
     symbol = _normalize_symbol(order.ticker)
     # Convert symbol to Alpaca format (BTC/USD -> BTCUSD)
