@@ -42,8 +42,35 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
   const blinkStartTimeRef = useRef<number>(0);
   const isBlinkingRef = useRef<boolean>(false);
 
+  // Horse Girl animation monitoring
+  const horseGirlCheckRef = useRef<NodeJS.Timeout | null>(null);
+
   // Initialize lip sync hook
   useWawa({ vrm: vrmRef.current, audioElem: audioRef.current } as any);
+
+  // Monitor Horse Girl animation status
+  useEffect(() => {
+    const isHorseGirl = modelPath.includes('horse_girl') && viewMode === 'dashboard';
+
+    if (!isHorseGirl) return;
+
+    const checkHorseGirlAnimation = () => {
+      if (vrmRef.current && mixerRef.current && !currentActionRef.current) {
+        console.log('🐴 Horse Girl detected as T-posing, restarting animations...');
+        playAnimationChain(getIdleAnimations());
+      }
+    };
+
+    // Check every 10 seconds if Horse Girl is animating
+    horseGirlCheckRef.current = setInterval(checkHorseGirlAnimation, 10000);
+
+    return () => {
+      if (horseGirlCheckRef.current) {
+        clearInterval(horseGirlCheckRef.current);
+        horseGirlCheckRef.current = null;
+      }
+    };
+  }, [modelPath, viewMode]);
 
   // Blinking function using sine wave
   const updateBlinking = useCallback(() => {
@@ -153,9 +180,13 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
     const isHorseGirl = modelPath.includes('horse_girl');
     if (isHorseGirl) {
-      // Horse girl uses original idle animation chain
-      console.log('🎬 Using original idle animations for Horse Girl');
-      return animationCategories.idle;
+      // Horse girl uses original idle animation chain, but add fallback
+      console.log('🎬 Using original idle animations for Horse Girl with fallback');
+      const horseAnimations = animationCategories.idle;
+      const fallbackAnimations = animationCategories.regularIdleAdult;
+
+      // Try horse animations first, then fallback to regular if they fail
+      return [...horseAnimations, ...fallbackAnimations];
     } else {
       // All other VRM models use regular idle adult animations
       console.log('🎬 Using regular idle adult animations for:', modelPath);
@@ -267,6 +298,20 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
     if (!vrmRef.current || !mixerRef.current || animations.length === 0) {
       console.warn('⚠️ Cannot play animation chain: VRM/mixer not ready or no animations');
+
+      // Special fallback for Horse Girl if no animations available
+      const isHorseGirl = modelPath.includes('horse_girl');
+      if (isHorseGirl && vrmRef.current && mixerRef.current) {
+        console.log('🐴 Horse Girl fallback: attempting to create basic idle pose');
+        // Try to create a simple T-pose breaking animation
+        setTimeout(() => {
+          if (vrmRef.current && mixerRef.current && !currentActionRef.current) {
+            console.log('🐴 Horse Girl: forcing basic animation as last resort');
+            // Force start animations again with a delay
+            setTimeout(() => playAnimationChain(getIdleAnimations()), 1000);
+          }
+        }, 1000);
+      }
       return;
     }
 
@@ -392,11 +437,15 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
         },
         undefined,
         (error: any) => {
-          console.error('Failed to load animation:', error);
+          console.error('Failed to load animation:', animation.name, error);
+          const isHorseGirl = modelPath.includes('horse_girl');
+          if (isHorseGirl) {
+            console.log('🐴 Horse Girl animation failed, trying fallback...');
+          }
           // Try next animation after a delay
           animationChainTimeoutRef.current = setTimeout(() => {
             playNextInChain();
-          }, 3000);
+          }, 2000); // Reduced delay for faster fallback
         }
       );
     };
@@ -649,7 +698,8 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
               // Start idle animation chain with multiple attempts to ensure it always works
               const startAnimations = () => {
                 if (vrmRef.current && mixerRef.current) {
-                  console.log('🎬 Starting idle animations for dashboard view');
+                  const isHorseGirl = modelPath.includes('horse_girl');
+                  console.log('🎬 Starting idle animations for dashboard view', isHorseGirl ? '(Horse Girl)' : '');
                   playAnimationChain(getIdleAnimations());
                   return true;
                 }
