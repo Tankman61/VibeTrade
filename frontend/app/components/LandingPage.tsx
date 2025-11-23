@@ -401,7 +401,7 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
               transition={{ duration: 0.8, delay: 0.6 }}
               viewport={{ once: true }}
             >
-              <div className="text-5xl mb-4">🎙️</div>
+              <div className="text-5xl mb-4"></div>
               <h3 className="text-3xl font-bold mb-4" style={{ color: '#831843' }}>
                 Voice-Powered Trading Companion
               </h3>
