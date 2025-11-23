@@ -36,7 +36,7 @@ export default function TradingPanel({
 }: TradingPanelProps) {
   return (
     <div className="flex flex-col border-r overflow-hidden" style={{
-      background: 'var(--slate-3)',
+      background: 'var(--slate-2)',
       borderColor: 'var(--slate-6)',
       height: '100%',
       minHeight: 0,
