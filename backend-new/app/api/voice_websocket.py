@@ -26,6 +26,7 @@ class VoiceSession:
         self.thread_id = thread_id
         self.stt = None
         self.tts = None
+        self.current_tts = None  # Track active TTS connection for immediate interruption
         self.tts_task = None  # Track ongoing TTS task for interruption
         self.is_speaking = False
         self.current_transcript = ""
@@ -61,12 +62,25 @@ class VoiceSession:
             # INTERRUPT: If agent is speaking, stop immediately
             if self.is_speaking and self.tts_task and not self.tts_task.done():
                 logger.info("🛑 User interrupted - cancelling TTS")
+
+                # Close TTS connection IMMEDIATELY to stop audio stream
+                if self.current_tts:
+                    try:
+                        await self.current_tts.close()
+                        logger.info("✅ TTS connection closed immediately")
+                    except Exception as close_err:
+                        logger.warning(f"Error closing TTS: {close_err}")
+                    self.current_tts = None
+
+                # Cancel the task
                 self.tts_task.cancel()
                 try:
                     await self.tts_task
                 except asyncio.CancelledError:
                     pass
+
                 self.is_speaking = False
+
                 # Notify frontend speech was interrupted
                 await self.send_message({
                     "type": "agent_speaking",
@@ -245,6 +259,9 @@ class VoiceSession:
                 speaking_rate=1.3  # 30% faster than default
             )
 
+            # Track this TTS connection for immediate interruption
+            self.current_tts = tts
+
             # Send text to TTS
             await tts.send_text(text, flush=False)
             await tts.finalize()
@@ -294,6 +311,7 @@ class VoiceSession:
             # Close the TTS connection
             if tts:
                 await tts.close()
+            self.current_tts = None
             self.is_speaking = False
 
     async def send_message(self, message: Dict[str, Any]):
