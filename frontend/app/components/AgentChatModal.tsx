@@ -13,18 +13,12 @@ interface AgentChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   messages: Message[];
-  messageInput: string;
-  setMessageInput: (value: string) => void;
-  onSendMessage: () => void;
 }
 
 export default function AgentChatModal({
   isOpen,
   onClose,
-  messages,
-  messageInput,
-  setMessageInput,
-  onSendMessage
+  messages
 }: AgentChatModalProps) {
   return (
     <AnimatePresence>
@@ -61,23 +55,9 @@ export default function AgentChatModal({
                 {/* Header */}
                 <div className="p-4 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                   <Flex justify="between" align="center">
-                    <Flex align="center" gap="3">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl border-2 shadow-lg relative" style={{ background: 'linear-gradient(135deg, var(--red-9), var(--red-10))', borderColor: 'var(--red-7)' }}>
-                        <div className="absolute inset-0 rounded-lg" style={{ background: 'linear-gradient(135deg, transparent, rgba(139, 92, 246, 0.2))' }}></div>
-                        <span className="relative z-10">🎯</span>
-                      </div>
-                      <div>
-                        <Text size="4" weight="bold" className="tracking-tight" style={{ color: 'var(--slate-12)' }}>
-                          Agent Divergence
-                        </Text>
-                        <Flex align="center" gap="1">
-                          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--green-9)' }}></div>
-                          <Text size="1" weight="medium" style={{ color: 'var(--green-11)' }}>
-                            Online & Monitoring
-                          </Text>
-                        </Flex>
-                      </div>
-                    </Flex>
+                    <div>
+                      <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>Chat Transcript</Text>
+                    </div>
                     <button
                       className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
                       style={{ color: 'var(--slate-11)' }}
@@ -127,32 +107,7 @@ export default function AgentChatModal({
                   ))}
                 </div>
 
-                {/* Input */}
-                <div className="p-4 border-t" style={{ borderColor: 'var(--slate-6)' }}>
-                  <Flex gap="2">
-                    <input
-                      type="text"
-                      placeholder="Ask me about the markets..."
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && onSendMessage()}
-                      className="flex-1 px-3 py-2 rounded-lg border outline-none transition-colors"
-                      style={{
-                        background: 'var(--slate-3)',
-                        borderColor: 'var(--slate-7)',
-                        color: 'var(--slate-12)'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--red-8)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--slate-7)'}
-                    />
-                    <Button
-                      onClick={onSendMessage}
-                      style={{ background: 'var(--red-9)', color: 'white', cursor: 'pointer' }}
-                    >
-                      Send
-                    </Button>
-                  </Flex>
-                </div>
+
               </div>
             </div>
           </motion.div>

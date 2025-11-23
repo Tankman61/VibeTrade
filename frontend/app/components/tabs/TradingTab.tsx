@@ -41,11 +41,41 @@ export default function TradingTab({
       return;
     }
     if (submitting) return;
-    
+
     // Validate current price is available
     if (currentPrice === "0" || currentPrice === "0.00") {
       toast.error("Please wait for market price to load");
       return;
+    }
+
+    // Check if account is locked
+    try {
+      const portfolio = await api.getPortfolio();
+      if (portfolio.is_locked) {
+        const lockReason = portfolio.lock_reason || "Account locked for your protection";
+        const expiresAt = portfolio.lock_expires_at
+          ? new Date(portfolio.lock_expires_at).toLocaleTimeString('en-US', { hour12: false })
+          : "soon";
+
+        toast.error(
+          `🔒 ${lockReason}\n\nTrading disabled until ${expiresAt}`,
+          {
+            duration: 6000,
+            style: {
+              background: "var(--red-3)",
+              color: "var(--red-11)",
+              border: "2px solid var(--red-7)",
+              fontSize: "14px",
+              fontWeight: "600",
+              whiteSpace: "pre-line",
+            },
+          }
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to check account lock status:", error);
+      // Continue with trade - backend will validate
     }
 
     try {

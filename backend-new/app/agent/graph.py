@@ -29,7 +29,7 @@ def call_agent(state: AgentState) -> AgentState:
     """
     Main agent node: calls GPT-4o with tools
     """
-    messages = state["messages"]
+    messages = list(state["messages"])
 
     # Add system prompt at the start if not present
     if not messages or not isinstance(messages[0], SystemMessage):
@@ -41,7 +41,8 @@ def call_agent(state: AgentState) -> AgentState:
     # Return updated state
     return {
         **state,
-        "messages": [response],
+        # Keep history plus the new agent response
+        "messages": messages + [response],
     }
 
 
@@ -64,7 +65,7 @@ async def call_tools(state: AgentState) -> AgentState:
     """
     Tool execution node: runs the tools requested by the agent
     """
-    messages = state["messages"]
+    messages = list(state["messages"])
     last_message = messages[-1]
 
     # Execute each tool call
@@ -97,9 +98,10 @@ async def call_tools(state: AgentState) -> AgentState:
                 )
             )
 
+    # Preserve history and append tool results so the agent can see them next step
     return {
         **state,
-        "messages": tool_messages,
+        "messages": messages + tool_messages,
     }
 
 

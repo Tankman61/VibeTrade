@@ -31,6 +31,15 @@ class VoiceSession:
         self.tts_task = None  # Track ongoing TTS task for interruption
         self.is_speaking = False
         self.current_transcript = ""
+        self.last_partial_text = ""  # Track latest partial for fallback
+
+    def _sanitize_for_speech(self, text: str) -> str:
+        """Strip simple markdown (bold/inline code) that can break TTS pronunciation."""
+        if not text:
+            return ""
+        sanitized = text.replace("**", "")
+        sanitized = sanitized.replace("`", "")
+        return sanitized
 
     async def start(self):
         """Initialize STT and TTS connections"""
@@ -152,12 +161,18 @@ class VoiceSession:
 
                 if transcript_type == "partial":
                     # Send partial transcript to frontend for display
+                    self.last_partial_text = text
                     await self.send_message({
                         "type": "partial_transcript",
                         "text": text
                     })
 
                 elif transcript_type == "final":
+                    # Use last partial as fallback if final is empty
+                    if not text and self.last_partial_text:
+                        text = self.last_partial_text
+                    self.last_partial_text = ""
+
                     # Send final transcript
                     await self.send_message({
                         "type": "final_transcript",
@@ -167,6 +182,19 @@ class VoiceSession:
                     # Process with agent
                     if text.strip():
                         await self.process_with_agent(text)
+
+                elif transcript_type == "commit_throttled":
+                    # ElevenLabs can throttle commits if <0.3s audio; treat the last partial as final if we have one
+                    if self.last_partial_text:
+                        fallback_text = self.last_partial_text
+                        self.last_partial_text = ""
+                        await self.send_message({
+                          "type": "final_transcript",
+                          "text": fallback_text
+                        })
+                        await self.process_with_agent(fallback_text)
+                    else:
+                        logger.warning(f"Commit throttled with no partial text; ignoring. Details: {transcript}")
 
                 elif transcript_type == "error":
                     await self.send_error(transcript.get("message", "STT error"))
@@ -205,14 +233,15 @@ class VoiceSession:
                             agent_response_text = last_msg.content
 
             # Send text response to frontend
+            safe_text = self._sanitize_for_speech(agent_response_text)
             await self.send_message({
                 "type": "agent_text",
-                "text": agent_response_text
+                "text": safe_text
             })
 
             # Convert to speech (track task for interruption)
             if agent_response_text:
-                self.tts_task = asyncio.create_task(self.speak_response(agent_response_text))
+                self.tts_task = asyncio.create_task(self.speak_response(safe_text))
                 try:
                     await self.tts_task
                 except asyncio.CancelledError:

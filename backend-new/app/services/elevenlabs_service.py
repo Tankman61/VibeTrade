@@ -186,6 +186,9 @@ class ElevenLabsTTS:
 
                 # Check for audio chunks
                 if "audio" in data:
+                    # Some payloads may send null/None before the final chunk; skip them safely
+                    if data["audio"] is None:
+                        continue
                     # Decode base64 audio
                     audio_bytes = base64.b64decode(data["audio"])
                     yield audio_bytes

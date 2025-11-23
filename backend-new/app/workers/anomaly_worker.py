@@ -46,6 +46,7 @@ class AnomalyWorker:
         
         self.interval_seconds = 5  # Check every 5 seconds
         self.is_running = False
+        self.stop_after_first_alert = True  # Single-shot for testing to avoid repeated firing
         self.anomaly_callbacks: List[Callable[[Dict[str, Any]], Awaitable[None]]] = []
         self._last_alert_time: Dict[str, float] = {}
         self.alert_cooldown_seconds = 30
@@ -216,6 +217,9 @@ class AnomalyWorker:
         delivered = await voice_speak(alert_message, alert_context)
         if delivered:
             logger.info("✅ Anomaly alert spoken via active voice session")
+            if self.stop_after_first_alert:
+                logger.info("🛑 Stopping anomaly worker after first alert (test mode)")
+                self.is_running = False
         else:
             logger.warning("⚠️ No active voice session to speak anomaly alert")
     

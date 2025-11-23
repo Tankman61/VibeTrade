@@ -19,6 +19,7 @@ export default function VoiceTestPage() {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceWsUrlRef = useRef<string | null>(null);
 
   // Get or create persistent thread_id
   const getThreadId = () => {
@@ -32,10 +33,65 @@ export default function VoiceTestPage() {
   };
   const threadIdRef = useRef<string>(getThreadId());
 
+  const resolveVoiceWsUrl = (): string | null => {
+    const explicit = process.env.NEXT_PUBLIC_VOICE_WS_URL;
+    if (explicit) return explicit;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (apiUrl) {
+      try {
+        const url = new URL(apiUrl);
+        url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+        url.pathname = "/ws/voice/agent";
+        return url.toString();
+      } catch (err) {
+        console.warn("Invalid NEXT_PUBLIC_API_URL for voice WebSocket:", err);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${protocol}//${window.location.host}/ws/voice/agent`;
+    }
+
+    return null;
+  };
+
+  const ensureVoiceServiceReachable = async (wsUrl: string): Promise<boolean> => {
+    if (typeof window === "undefined") return true;
+    try {
+      const parsed = new URL(wsUrl);
+      const protocol = parsed.protocol === "wss:" ? "https:" : "http:";
+      const healthUrl = `${protocol}//${parsed.host}/health`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(healthUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      return res.ok;
+    } catch (err) {
+      console.warn("Voice health check failed:", err);
+      return false;
+    }
+  };
+
   // Connect to voice WebSocket
   const connect = async () => {
+    const targetUrl = voiceWsUrlRef.current ?? resolveVoiceWsUrl();
+    if (!targetUrl) {
+      setError("Voice service URL not configured. Set NEXT_PUBLIC_VOICE_WS_URL or NEXT_PUBLIC_API_URL.");
+      return;
+    }
+    voiceWsUrlRef.current = targetUrl;
+
+    const reachable = await ensureVoiceServiceReachable(targetUrl);
+    if (!reachable) {
+      setError("Voice service not reachable at localhost:8000. Start the backend and retry.");
+      return;
+    }
+
     try {
-      const ws = new WebSocket("ws://localhost:8000/ws/voice/agent");
+      const ws = new WebSocket(targetUrl);
 
       ws.onopen = () => {
         console.log("✅ Connected to voice WebSocket");
@@ -53,8 +109,8 @@ export default function VoiceTestPage() {
       };
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setError("WebSocket connection error");
+        console.error(`WebSocket error (url: ${targetUrl}):`, error);
+        setError("Unable to reach voice service. Start the backend or update NEXT_PUBLIC_VOICE_WS_URL.");
       };
 
       ws.onclose = () => {

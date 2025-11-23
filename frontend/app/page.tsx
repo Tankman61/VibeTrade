@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Text, Flex, DropdownMenu, Button, ChevronDownIcon, Badge } from "@radix-ui/themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChartIcon, DashboardIcon, ActivityLogIcon, ExclamationTriangleIcon, GearIcon, SpeakerLoudIcon, SpeakerOffIcon, PersonIcon, ArrowLeftIcon } from "@radix-ui/react-icons";
@@ -52,14 +52,11 @@ export default function Home() {
   const [currentPrice, setCurrentPrice] = useState("0");
   const [priceChange, setPriceChange] = useState("0");
   const [currentTime, setCurrentTime] = useState("");
-  const [messageInput, setMessageInput] = useState("");
   const [positionSize, setPositionSize] = useState("");
   const [tradeType, setTradeType] = useState<"long" | "short">("long");
   const [stopLoss, setStopLoss] = useState("97,200");
   const [takeProfit, setTakeProfit] = useState("100,500");
-  const [messages, setMessages] = useState([
-    { role: "agent", text: "Hey trader! I'm watching BTC/USD for you. Ask me anything about the markets! 💹", time: "14:30:12" },
-  ]);
+  const [messages, setMessages] = useState<Array<{ role: "agent" | "user", text: string, time: string }>>([]);
   const [selectedSubreddit, setSelectedSubreddit] = useState<SubredditOption>("All");
   const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
   const [activePortfolio, setActivePortfolio] = useState<PortfolioView>(null);
@@ -67,31 +64,40 @@ export default function Home() {
   const [homeResetKey, setHomeResetKey] = useState(0);
   const [navbarHolding, setNavbarHolding] = useState<{ symbol: string; name: string } | null>(null);
 
+  // Track last transcript to avoid duplicates
+  const lastTranscriptRef = useRef<string>("");
+  const lastAgentResponseRef = useRef<string>("");
+
   // Voice Agent
   const voiceAgent = useVoiceAgent({
+    autoConnect: true,
     onTranscript: (text) => {
-      // Update messages with transcript
-      if (text) {
+      // Add/update user message with final transcript
+      if (text && text !== lastTranscriptRef.current) {
+        lastTranscriptRef.current = text;
         setMessages(prev => {
           const lastMsg = prev[prev.length - 1];
-          if (lastMsg?.role === 'user' && lastMsg.text !== text) {
-            return [...prev.slice(0, -1), { ...lastMsg, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          // Update existing user message or add new one
+          if (lastMsg?.role === 'user') {
+            return [...prev.slice(0, -1), { role: "user" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          } else {
+            return [...prev, { role: "user" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
           }
-          return prev;
         });
       }
     },
     onAgentResponse: (text) => {
-      // Add agent response to messages
-      if (text) {
+      // Add/update agent response message
+      if (text && text !== lastAgentResponseRef.current) {
+        lastAgentResponseRef.current = text;
         setMessages(prev => {
           const lastMsg = prev[prev.length - 1];
-          if (lastMsg?.role === 'agent' && lastMsg.text !== text) {
+          // Update existing agent message or add new one
+          if (lastMsg?.role === 'agent') {
             return [...prev.slice(0, -1), { role: "agent" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
-          } else if (lastMsg?.role !== 'agent') {
+          } else {
             return [...prev, { role: "agent" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
           }
-          return prev;
         });
       }
     },
@@ -307,28 +313,6 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentExpanded]);
-
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-
-    const newUserMsg = {
-      role: "user" as const,
-      text: messageInput,
-      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, newUserMsg]);
-    setMessageInput("");
-
-    setTimeout(() => {
-      const agentResponse = {
-        role: "agent" as const,
-        text: "Let me check the charts for you... 📊",
-        time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      };
-      setMessages(prev => [...prev, agentResponse]);
-    }, 500);
-  };
 
   const sentimentScoreLabel = sentimentStats ? (sentimentStats.score > 0 ? `+${sentimentStats.score}` : `${sentimentStats.score}`) : '0';
   const priceChangeColor = parseFloat(priceChange) >= 0 ? 'var(--green-11)' : 'var(--red-10)';
@@ -768,49 +752,9 @@ export default function Home() {
                 <div className="relative h-full flex flex-col">
                   <div className="p-4 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                     <Flex justify="between" align="center">
-                      <Flex align="center" gap="3">
-                        <div className="w-12 h-12 rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ borderColor: 'var(--slate-6)' }}>
-                          <img
-                            src={selectedCharacter.image}
-                            alt={selectedCharacter.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // Fallback for missing images
-                              const target = e.target as HTMLImageElement;
-                              target.style.background = 'linear-gradient(135deg, var(--blue-9), var(--purple-9))';
-                              target.style.display = 'flex';
-                              target.style.alignItems = 'center';
-                              target.style.justifyContent = 'center';
-                              target.style.color = 'white';
-                              target.style.fontSize = '12px';
-                              target.style.fontWeight = 'bold';
-                              target.src = 'data:image/svg+xml;base64,' + btoa(`
-                                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <rect width="48" height="48" rx="8" fill="url(#gradient)"/>
-                                  <text x="24" y="28" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${selectedCharacter.name.charAt(0)}</text>
-                                  <defs>
-                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                      <stop offset="0%" style="stop-color:#3b82f6"/>
-                                      <stop offset="100%" style="stop-color:#8b5cf6"/>
-                                    </linearGradient>
-                                  </defs>
-                                </svg>
-                              `);
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>{selectedCharacter.name}</Text>
-                          <Flex align="center" gap="1">
-                            <div className={`w-2 h-2 rounded-full ${voiceAgent.isConnected ? 'animate-pulse' : ''}`} style={{ background: voiceAgent.isConnected ? 'var(--green-9)' : 'var(--slate-9)' }}></div>
-                            <Text size="1" weight="medium" style={{ color: voiceAgent.isConnected ? 'var(--green-11)' : 'var(--slate-11)' }}>
-                              {voiceAgent.isConnected ? 'Voice Connected' : 'Voice Disconnected'}
-                            </Text>
-                            {voiceAgent.isThinking && <Badge color="blue" size="1">Thinking...</Badge>}
-                            {voiceAgent.isSpeaking && <Badge color="purple" size="1">Speaking...</Badge>}
-                          </Flex>
-                        </div>
-                      </Flex>
+                      <div>
+                        <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>Chat Transcript</Text>
+                      </div>
                       <button className="w-8 h-8 flex items-center justify-center rounded-lg" onClick={() => {
                         voiceAgent.disconnect();
                         setAgentExpanded(false);
@@ -841,28 +785,20 @@ export default function Home() {
                   </div>
                   <div className="p-4 border-t" style={{ borderColor: 'var(--slate-6)' }}>
                     <Flex gap="2" align="center">
-                      {!voiceAgent.isConnected ? (
-                        <Button onClick={voiceAgent.connect} size="2" style={{ background: 'var(--green-9)', color: 'white', cursor: 'pointer' }}>
-                          Connect Voice
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            onClick={voiceAgent.isRecording ? voiceAgent.stopRecording : voiceAgent.startRecording}
-                            size="2"
-                            color={voiceAgent.isRecording ? "red" : "green"}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {voiceAgent.isRecording ? "🔴 Stop" : "🎤 Speak"}
-                          </Button>
-                          <Button onClick={voiceAgent.disconnect} size="2" variant="outline" style={{ cursor: 'pointer' }}>
-                            Disconnect
-                          </Button>
-                        </>
+                      <Button
+                        onClick={voiceAgent.isRecording ? voiceAgent.stopRecording : voiceAgent.startRecording}
+                        size="2"
+                        color={voiceAgent.isRecording ? "red" : "green"}
+                        style={{ cursor: 'pointer' }}
+                        disabled={!voiceAgent.isConnected}
+                      >
+                        {voiceAgent.isRecording ? "Stop" : "Speak"}
+                      </Button>
+                      {!voiceAgent.isConnected && (
+                        <Text size="1" style={{ color: 'var(--slate-11)' }}>
+                          Connecting...
+                        </Text>
                       )}
-                      <div className="flex-1" />
-                      <input type="text" placeholder="Or type a message..." value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} className="flex-1 px-3 py-2 rounded-lg border outline-none" style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-7)', color: 'var(--slate-12)' }} />
-                      <Button onClick={handleSendMessage} style={{ background: 'var(--red-9)', color: 'white', cursor: 'pointer' }}>Send</Button>
                     </Flex>
                     {voiceAgent.error && (
                       <Text size="1" style={{ color: 'var(--red-10)', marginTop: '0.5rem' }}>

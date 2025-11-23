@@ -12,6 +12,7 @@ import { DropdownMenu, ChevronDownIcon } from "@radix-ui/themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { api, type RedditPost, type SentimentStats } from "@/app/lib/api";
 import VRMViewerCompact from "../VRMViewerCompact";
+import { useVoiceAgent } from "@/hooks/useVoiceAgent";
 
 type ChartType = "candlestick" | "bar" | "line" | "area" | "baseline" | "histogram";
 type TimeFrame = "1m" | "5m" | "10m" | "15m" | "30m" | "1h" | "4h" | "1d";
@@ -168,33 +169,62 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = fit all, higher = zoomed in
   const [agentExpanded, setAgentExpanded] = useState(false);
   const [sentimentExpanded, setSentimentExpanded] = useState(false);
-  const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState([
-    { role: "agent" as const, text: "Hey trader! I'm watching BTC/USD for you. Ask me anything about the markets! 💹", time: "14:30:12" },
-  ]);
+  const [messages, setMessages] = useState<Array<{ role: "agent" | "user", text: string, time: string }>>([]);
   const [selectedSubreddit, setSelectedSubreddit] = useState<SubredditOption>("All");
   const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
 
+  // Track last transcript to avoid duplicates
+  const lastTranscriptRef = useRef<string>("");
+  const lastAgentResponseRef = useRef<string>("");
+
+  // Voice Agent
+  const voiceAgent = useVoiceAgent({
+    autoConnect: true,
+    onTranscript: (text) => {
+      // Add/update user message with final transcript
+      if (text && text !== lastTranscriptRef.current) {
+        lastTranscriptRef.current = text;
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1];
+          // Update existing user message or add new one
+          if (lastMsg?.role === 'user') {
+            return [...prev.slice(0, -1), { role: "user" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          } else {
+            return [...prev, { role: "user" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          }
+        });
+      }
+    },
+    onAgentResponse: (text) => {
+      // Add/update agent response message
+      if (text && text !== lastAgentResponseRef.current) {
+        lastAgentResponseRef.current = text;
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1];
+          // Update existing agent message or add new one
+          if (lastMsg?.role === 'agent') {
+            return [...prev.slice(0, -1), { role: "agent" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          } else {
+            return [...prev, { role: "agent" as const, text, time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+          }
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("Voice agent error:", error);
+    }
+  });
+
+  // Connect/disconnect voice agent when modal opens/closes
+  useEffect(() => {
+    if (agentExpanded && !voiceAgent.isConnected) {
+      voiceAgent.connect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentExpanded]);
+
   // Character states
   const [isMuted, setIsMuted] = useState(false);
-
-  // Voice agent states
-  const [isVoiceConnected, setIsVoiceConnected] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
-  const [isAgentThinking, setIsAgentThinking] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState<string>("");
-  const [agentResponse, setAgentResponse] = useState<string>("");
-  const [voiceError, setVoiceError] = useState<string>("");
-
-  const wsVoiceRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingAudioRef = useRef(false);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Character data
   const characters = [
@@ -213,34 +243,12 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   // Debug: Log when character changes and reconnect voice agent with new voice
   useEffect(() => {
     console.log('🎭 Current character updated to:', selectedCharacter.name, selectedCharacter.vrm, 'voice:', selectedCharacter.voice);
-
-    // If voice agent is connected, reconnect with new character's voice
-    if (isVoiceConnected) {
-      console.log('🎙️ Reconnecting voice agent with new voice:', selectedCharacter.voice);
-      disconnectVoiceAgent();
-      setTimeout(() => {
-        connectVoiceAgent();
-        if (isRecording) {
-          setTimeout(() => {
-            startVoiceRecording();
-          }, 500);
-        }
-      }, 300);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCharacter]);
 
   // Debug: Log when modal state changes
   useEffect(() => {
     console.log('🎭 characterSwapperOpen state changed to:', characterSwapperOpen);
   }, [characterSwapperOpen]);
-
-  // Cleanup voice agent on unmount
-  useEffect(() => {
-    return () => {
-      disconnectVoiceAgent();
-    };
-  }, []);
 
   // API Data States
   const [redditPosts, setRedditPosts] = useState<RedditPost[]>([]);
@@ -330,268 +338,6 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
 
   const removeHolding = (id: string) => {
     setHoldings(holdings.filter((h) => h.id !== id));
-  };
-
-  // Voice Agent Functions (from voice-test page)
-  const getThreadId = () => {
-    if (typeof window === 'undefined') return `voice-session-${Date.now()}`;
-    let threadId = localStorage.getItem('voice_thread_id');
-    if (!threadId) {
-      threadId = `voice-session-${Date.now()}`;
-      localStorage.setItem('voice_thread_id', threadId);
-    }
-    return threadId;
-  };
-  const threadIdRef = useRef<string>(getThreadId());
-  // Auto-connect voice WebSocket on mount so agent is ready without visiting voice-test
-  useEffect(() => {
-    if (!wsVoiceRef.current) {
-      connectVoiceAgent();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const connectVoiceAgent = async () => {
-    // Avoid duplicate connections
-    if (wsVoiceRef.current && (wsVoiceRef.current.readyState === WebSocket.OPEN || wsVoiceRef.current.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-    try {
-      const ws = new WebSocket("ws://localhost:8000/ws/voice/agent");
-
-      ws.onopen = () => {
-        console.log("✅ Connected to voice WebSocket");
-        ws.send(JSON.stringify({
-          type: "start",
-          thread_id: threadIdRef.current,
-          voice: selectedCharacter.voice || "nova"
-        }));
-      };
-
-      ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        handleVoiceMessage(data);
-      };
-
-      ws.onerror = (error) => {
-        console.error("Voice WebSocket error. readyState:", ws.readyState, "event:", error);
-        setVoiceError("WebSocket connection error");
-      };
-
-      ws.onclose = () => {
-        console.log("Voice WebSocket closed");
-        setIsVoiceConnected(false);
-        wsVoiceRef.current = null;
-      };
-
-      wsVoiceRef.current = ws;
-    } catch (err) {
-      console.error("Failed to connect to voice:", err);
-      setVoiceError("Failed to connect to voice service");
-    }
-  };
-
-  const handleVoiceMessage = async (data: any) => {
-    console.log("📨 Voice message:", data);
-
-    switch (data.type) {
-      case "ready":
-        setIsVoiceConnected(true);
-        setVoiceError("");
-        break;
-
-      case "partial_transcript":
-        setVoiceTranscript(data.text);
-        break;
-
-      case "final_transcript":
-        setVoiceTranscript(data.text);
-        break;
-
-      case "agent_thinking":
-        setIsAgentThinking(data.is_thinking);
-        break;
-
-      case "agent_text":
-        setAgentResponse(data.text);
-        break;
-
-      case "agent_speaking":
-        setIsAgentSpeaking(data.is_speaking);
-        if (data.is_speaking) {
-          audioQueueRef.current = [];
-          if (currentAudioRef.current) {
-            currentAudioRef.current.pause();
-            currentAudioRef.current = null;
-          }
-          isPlayingAudioRef.current = false;
-        }
-        break;
-
-      case "agent_audio":
-        await playVoiceAudio(data.audio);
-        break;
-
-      case "error":
-        setVoiceError(data.message);
-        break;
-    }
-  };
-
-  const floatTo16BitPCM = (float32Array: Float32Array): ArrayBuffer => {
-    const buffer = new ArrayBuffer(float32Array.length * 2);
-    const view = new DataView(buffer);
-    let offset = 0;
-    for (let i = 0; i < float32Array.length; i++, offset += 2) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-    return buffer;
-  };
-
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        }
-      });
-
-      streamRef.current = stream;
-
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate: 16000 });
-      }
-
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const bufferSize = 4096;
-      const processor = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
-
-      processor.onaudioprocess = (e) => {
-        if (wsVoiceRef.current?.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
-          const pcmData = floatTo16BitPCM(inputData);
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(pcmData)));
-
-          wsVoiceRef.current.send(JSON.stringify({
-            type: "audio_chunk",
-            audio: base64
-          }));
-        }
-      };
-
-      source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
-
-      processorRef.current = processor;
-      setIsRecording(true);
-      setVoiceTranscript("");
-
-      console.log("🎤 Started voice recording");
-    } catch (err) {
-      console.error("Failed to start recording:", err);
-    }
-  };
-
-  const stopVoiceRecording = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    setIsRecording(false);
-
-    // Only send if WebSocket is open
-    if (wsVoiceRef.current?.readyState === WebSocket.OPEN) {
-      try {
-        wsVoiceRef.current.send(JSON.stringify({
-          type: "audio_end"
-        }));
-      } catch (err) {
-        console.warn("Failed to send audio_end message:", err);
-      }
-    }
-
-    console.log("🛑 Stopped voice recording");
-  };
-
-  const playVoiceAudio = async (base64Audio: string) => {
-    try {
-      if (isMuted) return; // Don't play if muted
-
-      audioQueueRef.current.push(base64Audio);
-
-      if (!isPlayingAudioRef.current) {
-        playNextVoiceAudio();
-      }
-    } catch (err) {
-      console.error("Error queueing audio:", err);
-    }
-  };
-
-  const playNextVoiceAudio = () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingAudioRef.current = false;
-      return;
-    }
-
-    isPlayingAudioRef.current = true;
-    const base64Audio = audioQueueRef.current.shift()!;
-
-    const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-    const blob = new Blob([audioData], { type: 'audio/mpeg' });
-    const url = URL.createObjectURL(blob);
-
-    const audio = new Audio(url);
-    currentAudioRef.current = audio;
-
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      currentAudioRef.current = null;
-      playNextVoiceAudio();
-    };
-
-    audio.onerror = (err) => {
-      console.error("Audio playback error:", err);
-      URL.revokeObjectURL(url);
-      currentAudioRef.current = null;
-      playNextVoiceAudio();
-    };
-
-    audio.play().catch(err => {
-      console.error("Error playing audio:", err);
-      URL.revokeObjectURL(url);
-      currentAudioRef.current = null;
-      playNextVoiceAudio();
-    });
-  };
-
-  const disconnectVoiceAgent = () => {
-    if (wsVoiceRef.current) {
-      try {
-        if (wsVoiceRef.current.readyState === WebSocket.OPEN) {
-          wsVoiceRef.current.send(JSON.stringify({ type: "stop" }));
-        }
-        wsVoiceRef.current.close();
-      } catch (err) {
-        console.error("Error disconnecting voice WS:", err);
-      }
-      wsVoiceRef.current = null;
-    }
-
-    if (isRecording) {
-      stopVoiceRecording();
-    }
-
-    setIsVoiceConnected(false);
   };
 
   // Normalize symbol for comparison
@@ -1164,41 +910,6 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     setZoomLevel(1);
   };
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    
-    const userMessage = {
-      role: "user" as const,
-      text: messageInput,
-      time: new Date().toLocaleTimeString()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = messageInput;
-    setMessageInput("");
-    
-    // Simulate agent response (replace with actual API call later)
-    setTimeout(() => {
-      const agentResponse = {
-        role: "agent" as const,
-        text: `I understand you're asking about "${currentInput}". Let me analyze the current market conditions for ${selectedHolding?.symbol || "BTC"}...`,
-        time: new Date().toLocaleTimeString()
-      };
-      setMessages(prev => [...prev, agentResponse]);
-    }, 1000);
-  };
-
-  // Initialize messages when holding is selected
-  useEffect(() => {
-    if (selectedHolding && messages.length === 0) {
-      setMessages([{
-        role: "agent",
-        text: `Hey trader! I'm watching ${selectedHolding.symbol} for you. Ask me anything about the markets! 💹`,
-        time: new Date().toLocaleTimeString()
-      }]);
-    }
-  }, [selectedHolding]);
-
   if (selectedHolding) {
     return (
       <div className="h-full w-full flex flex-col overflow-hidden" style={{ background: 'var(--slate-1)' }}>
@@ -1416,35 +1127,32 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                     onClick={async (e) => {
                       e.stopPropagation();
 
-                      if (!isVoiceConnected) {
-                        // Connect and start recording
-                        await connectVoiceAgent();
-                        // Wait a bit for connection then start recording
-                        setTimeout(async () => {
-                          await startVoiceRecording();
-                          setIsMuted(false);
-                        }, 500);
+                      if (!voiceAgent.isConnected) {
+                        // Connect and start recording instantly
+                        await voiceAgent.connect();
+                        await voiceAgent.startRecording();
+                        setIsMuted(false);
                       } else {
-                        if (isRecording) {
+                        if (voiceAgent.isRecording) {
                           // Stop recording but stay connected
-                          stopVoiceRecording();
+                          voiceAgent.stopRecording();
                           setIsMuted(true);
                         } else {
                           // Start recording again
-                          await startVoiceRecording();
+                          await voiceAgent.startRecording();
                           setIsMuted(false);
                         }
                       }
                     }}
                     className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
                     style={{
-                      background: isRecording ? 'var(--red-9)' : 'transparent',
-                      borderColor: isVoiceConnected ? 'var(--green-9)' : 'var(--slate-6)',
-                      color: isRecording ? 'white' : 'var(--slate-11)'
+                      background: voiceAgent.isRecording ? 'var(--red-9)' : 'transparent',
+                      borderColor: voiceAgent.isConnected ? 'var(--green-9)' : 'var(--slate-6)',
+                      color: voiceAgent.isRecording ? 'white' : 'var(--slate-11)'
                     }}
-                    title={isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
+                    title={voiceAgent.isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
                   >
-                    {isRecording ? (
+                    {voiceAgent.isRecording ? (
                       <SpeakerLoudIcon width="18" height="18" />
                     ) : (
                       <SpeakerOffIcon width="18" height="18" />
@@ -1650,18 +1358,9 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                   <div className="relative h-full flex flex-col">
                     <div className="p-4 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                       <Flex justify="between" align="center">
-                        <Flex align="center" gap="3">
-                          <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl border-2 shadow-lg relative" style={{ background: 'linear-gradient(135deg, var(--red-9), var(--red-10))', borderColor: 'var(--red-7)' }}>
-                            <span>🎯</span>
-                          </div>
-                          <div>
-                            <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>Agent Divergence</Text>
-                            <Flex align="center" gap="1">
-                              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--green-9)' }}></div>
-                              <Text size="1" weight="medium" style={{ color: 'var(--green-11)' }}>Online & Monitoring</Text>
-                            </Flex>
-                          </div>
-                        </Flex>
+                        <div>
+                          <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>Chat Transcript</Text>
+                        </div>
                         <button 
                           className="w-8 h-8 flex items-center justify-center rounded-lg" 
                           onClick={() => setAgentExpanded(false)}
@@ -1689,20 +1388,6 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                           </div>
                         </div>
                       ))}
-                    </div>
-                    <div className="p-4 border-t" style={{ borderColor: 'var(--slate-6)' }}>
-                      <Flex gap="2">
-                        <input 
-                          type="text" 
-                          placeholder="Ask me about the markets..." 
-                          value={messageInput} 
-                          onChange={(e) => setMessageInput(e.target.value)} 
-                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
-                          className="flex-1 px-3 py-2 rounded-lg border outline-none" 
-                          style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-7)', color: 'var(--slate-12)' }} 
-                        />
-                        <Button onClick={handleSendMessage} style={{ background: 'var(--red-9)', color: 'white', cursor: 'pointer' }}>Send</Button>
-                      </Flex>
                     </div>
                   </div>
                 </div>
