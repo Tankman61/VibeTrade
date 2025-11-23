@@ -319,17 +319,17 @@ export default function Home() {
   const priceChangePrefix = parseFloat(priceChange) >= 0 ? '+' : '';
 
   return (
-    <main className="min-h-screen w-screen overflow-y-auto" style={{ background: 'var(--slate-1)' }}>
-      {/* Landing Page Section - Scrollable */}
+    <main className="h-screen w-screen overflow-hidden" style={{ background: 'var(--slate-1)' }}>
+      {/* Landing Page Section */}
       {showLandingPage && (
-        <div className="w-full">
+        <div className="w-full h-screen overflow-hidden">
           <LandingPage onEnter={() => setShowLandingPage(false)} />
         </div>
       )}
 
       {/* Main Dashboard Content */}
       {!showLandingPage && (
-      <div className={`w-full h-screen`} style={{ background: 'var(--slate-1)' }}>
+      <div className="w-full h-screen flex flex-col" style={{ background: 'var(--slate-1)' }}>
       {/* Top Bar */}
       <div className={`h-16 border-b flex items-center px-4 justify-between ${showLandingPage ? 'hidden' : ''}`} style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
         <Flex align="center" gap="3">
@@ -344,8 +344,6 @@ export default function Home() {
               setNavbarHolding(null);
               setSideMenuOpen(false);
               setHomeResetKey(prev => prev + 1);
-              // Scroll to top to show landing page
-              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
             <img
@@ -416,11 +414,11 @@ export default function Home() {
         />
       )}
 
-      <div className={`flex ${showLandingPage ? 'min-h-screen' : 'h-[calc(100vh-3rem)]'} gap-0`}>
+      <div className="flex flex-1 gap-0 min-h-0">
         {/* LEFT COLUMN */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Main Content Area - scrollable */}
-          <div className="flex-1 border-r overflow-hidden min-h-0" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+          <div className="flex-1 border-r overflow-y-auto min-h-0" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
             {activePortfolio === null && activeHoldings === null ? (
               <CryptoHoldingsDashboard
                 key={homeResetKey}
@@ -704,20 +702,6 @@ export default function Home() {
               onMouseLeave={() => setHoveredIcon(null)}
             >
               <ActivityLogIcon width="18" height="18" />
-            </button>
-
-            <button
-              onClick={() => setAgentExpanded(true)}
-              className="w-8 h-8 rounded flex items-center justify-center transition-colors"
-              style={{
-                background: hoveredIcon === "agent" ? 'var(--slate-4)' : 'transparent',
-                color: hoveredIcon === "agent" || agentExpanded ? 'var(--slate-12)' : 'var(--slate-11)'
-              }}
-              title="Voice Agent"
-              onMouseEnter={() => setHoveredIcon("agent")}
-              onMouseLeave={() => setHoveredIcon(null)}
-            >
-              <PersonIcon width="18" height="18" />
             </button>
 
             <div className="mt-auto">

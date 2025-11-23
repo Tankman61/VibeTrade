@@ -32,6 +32,7 @@ class VoiceSession:
         self.is_speaking = False
         self.current_transcript = ""
         self.last_partial_text = ""  # Track latest partial for fallback
+        self.turn_id = 0  # Increment per user utterance to avoid duplicate agent runs
 
     def _sanitize_for_speech(self, text: str) -> str:
         """Strip simple markdown (bold/inline code) that can break TTS pronunciation."""
@@ -181,7 +182,8 @@ class VoiceSession:
 
                     # Process with agent
                     if text.strip():
-                        await self.process_with_agent(text)
+                        self.turn_id += 1
+                        await self.process_with_agent(text, turn_id=self.turn_id)
 
                 elif transcript_type == "commit_throttled":
                     # ElevenLabs can throttle commits if <0.3s audio; treat the last partial as final if we have one
@@ -192,7 +194,8 @@ class VoiceSession:
                           "type": "final_transcript",
                           "text": fallback_text
                         })
-                        await self.process_with_agent(fallback_text)
+                        self.turn_id += 1
+                        await self.process_with_agent(fallback_text, turn_id=self.turn_id)
                     else:
                         logger.warning(f"Commit throttled with no partial text; ignoring. Details: {transcript}")
 
@@ -202,7 +205,7 @@ class VoiceSession:
         except Exception as e:
             logger.error(f"Error in STT listener: {e}")
 
-    async def process_with_agent(self, user_text: str):
+    async def process_with_agent(self, user_text: str, turn_id: int):
         """Send text to LangGraph agent and get response"""
         try:
             logger.info(f"🤖 Processing with agent: {user_text}")
@@ -231,6 +234,8 @@ class VoiceSession:
                     if hasattr(last_msg, "content") and last_msg.content:
                         if not hasattr(last_msg, "tool_calls") or not last_msg.tool_calls:
                             agent_response_text = last_msg.content
+                        else:
+                            logger.info(f"Agent emitted tool calls for turn {turn_id}")
 
             # Send text response to frontend
             safe_text = self._sanitize_for_speech(agent_response_text)
@@ -241,7 +246,15 @@ class VoiceSession:
 
             # Convert to speech (track task for interruption)
             if agent_response_text:
-                self.tts_task = asyncio.create_task(self.speak_response(safe_text))
+                # Cancel any existing TTS for this turn to avoid overlaps
+                if self.tts_task and not self.tts_task.done():
+                    self.tts_task.cancel()
+                    try:
+                        await self.tts_task
+                    except asyncio.CancelledError:
+                        pass
+
+                self.tts_task = asyncio.create_task(self.speak_response(safe_text, turn_id=turn_id))
                 try:
                     await self.tts_task
                 except asyncio.CancelledError:
@@ -363,11 +376,11 @@ class VoiceSession:
                 "is_thinking": False
             })
 
-    async def speak_response(self, text: str):
+    async def speak_response(self, text: str, turn_id: int):
         """Convert agent response to speech and stream to frontend"""
         tts = None
         try:
-            logger.info(f"🔊 Speaking response: {text[:50]}...")
+            logger.info(f"🔊 Speaking response (turn {turn_id}): {text[:50]}...")
 
             # Mark as speaking
             self.is_speaking = True

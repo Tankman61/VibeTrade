@@ -25,11 +25,15 @@ async def get_risk_monitor():
     db = get_supabase()
 
     # Get latest market_context
-    context_result = db.client.table("market_context")\
-        .select("*")\
-        .order("created_at", desc=True)\
-        .limit(1)\
-        .execute()
+    try:
+        context_result = db.client.table("market_context")\
+            .select("*")\
+            .order("created_at", desc=True)\
+            .limit(1)\
+            .execute()
+    except Exception as e:
+        # Upstream (Supabase/Cloudflare) returned non-JSON or 5xx; return empty state instead of 500
+        raise HTTPException(status_code=502, detail=f"Risk monitor unavailable: {e}")
 
     if not context_result.data:
         # Return empty state if no data
@@ -74,10 +78,13 @@ async def get_risk_monitor():
         hype_level = "High"
 
     # Get watchlist
-    watchlist_result = db.client.table("watchlist")\
-        .select("ticker, price_change_24h")\
-        .order("ticker")\
-        .execute()
+    try:
+        watchlist_result = db.client.table("watchlist")\
+            .select("ticker, price_change_24h")\
+            .order("ticker")\
+            .execute()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Risk monitor watchlist unavailable: {e}")
 
     watchlist = []
     for item in watchlist_result.data:

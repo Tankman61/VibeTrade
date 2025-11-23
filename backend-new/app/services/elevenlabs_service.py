@@ -222,6 +222,8 @@ class ElevenLabsVoiceService:
 
         # Get voice ID from environment
         self.voice_id = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+        if self.voice_id:
+            self.voice_id = self.voice_id.strip()
 
     def create_stt(self) -> ElevenLabsSTT:
         """Create STT instance"""
