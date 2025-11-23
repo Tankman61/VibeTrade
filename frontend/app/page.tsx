@@ -44,7 +44,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [characterSwapperOpen, setCharacterSwapperOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [showLandingPage, setShowLandingPage] = useState(false);
+  const [showLandingPage, setShowLandingPage] = useState(true);
   const [activeTradingTab, setActiveTradingTab] = useState<"risk" | "trade" | "portfolio" | "history">("trade");
   const [hoveredIcon, setHoveredIcon] = useState<"risk" | "trade" | "portfolio" | "history" | "settings" | null>(null);
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");

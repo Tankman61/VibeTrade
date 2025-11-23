@@ -455,10 +455,8 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
               // Load hip hop animation for landing page
               loadLandingAnimation(vrm, mixer);
             } else {
-              // Trigger idle animation chain start for dashboard
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('vrm-loaded'));
-              }, 500);
+              // Start idle animation chain immediately for dashboard
+              playAnimationChain(animationCategories.idle);
             }
           },
           undefined,
