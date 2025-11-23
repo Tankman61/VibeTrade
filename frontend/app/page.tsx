@@ -296,14 +296,14 @@ export default function Home() {
 
               {/* Bottom Data Panels */}
               <div className="h-96 border-t border-r grid grid-cols-[256px_1fr_1fr] gap-0" style={{ borderColor: 'var(--slate-6)' }}>
-                {/* VTuber Profile Card */}
+                {/* VTuber Profile Card - Expanded to fill available space */}
                 {!showLandingPage && (
                   <div
-                    className="border-r cursor-pointer flex items-center justify-center"
-                    style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', width: '256px', height: '256px' }}
+                    className="border-r cursor-pointer flex items-center justify-center h-full p-2"
+                    style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', width: '256px' }}
                     onClick={() => setAgentExpanded(!agentExpanded)}
                   >
-                    <div className="w-[200px] h-[200px] rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                    <div className="w-full h-full rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
                       <VRMViewerCompact
                         key={`vrm-${selectedCharacter.id}`} // Force re-render when character changes
                         onSceneClick={() => setAgentExpanded(!agentExpanded)}

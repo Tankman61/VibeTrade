@@ -351,10 +351,10 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
         }
         console.log('🎭 VRMViewerCompact initializing with viewMode:', viewMode, 'modelPath:', modelPath);
       } else {
-        // Dashboard setup (small square)
+        // Dashboard setup - now expanded to fill available space
         if (container.clientWidth === 0 || container.clientHeight === 0) {
           container.style.width = '100%';
-          container.style.height = '400px';
+          container.style.height = '100%';
         }
 
         camera = new THREE.PerspectiveCamera(
@@ -363,8 +363,8 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
           0.1,
           1000
         );
-        // Zoomed in for half body view - closer and focused on upper body
-        camera.position.set(0.0, 0.5, 1.0);
+        // Adjust camera for larger canvas - pull back slightly and move up for better full-body framing
+        camera.position.set(0.0, 1, 1.3);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
