@@ -85,7 +85,7 @@ export default function Home() {
   const [loadingReddit, setLoadingReddit] = useState(true);
   const [loadingSentiment, setLoadingSentiment] = useState(true);
 
-  // Handle WebSocket messages for live BTC price and alerts
+  // Handle WebSocket messages for live BTC price
   const handlePriceMessage = (message: AlpacaMessage) => {
     if (message.type === "bar" && message.data) {
       const barData = message.data;
@@ -117,42 +117,6 @@ export default function Home() {
           );
         }
       }
-    } else if (message.type === "ANOMALY_ALERT") {
-      // Handle anomaly alert - display in chat
-      const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const alertMessage = `🚨 ${message.message}`;
-      
-      // Add to chat messages
-      setMessages(prev => [...prev, { 
-        role: "agent", 
-        text: alertMessage, 
-        time: timestamp 
-      }]);
-      
-      // Log to console for debugging
-      console.warn("🚨 ANOMALY ALERT:", message);
-      
-      // Open agent chat if not already open
-      if (!agentExpanded) {
-        setAgentExpanded(true);
-      }
-    } else if (message.type === "INTERRUPT") {
-      // Handle interrupt - display prominently
-      const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const interruptMessage = `⚠️ INTERRUPT: ${message.message}`;
-      
-      // Add to chat messages
-      setMessages(prev => [...prev, { 
-        role: "agent", 
-        text: interruptMessage, 
-        time: timestamp 
-      }]);
-      
-      // Log to console
-      console.error("⚠️ INTERRUPT:", message);
-      
-      // Open agent chat
-      setAgentExpanded(true);
     }
   };
 
@@ -398,8 +362,9 @@ export default function Home() {
             )}
           </div>
 
-          {/* Bottom Data Panels */}
-          <div className="shrink-0 border-t border-r flex gap-0" style={{ borderColor: 'var(--slate-6)' }}>
+          {/* Bottom Data Panels - REMOVED - taking up too much space */}
+          {false && (
+            <div className="shrink-0 border-t border-r flex gap-0" style={{ borderColor: 'var(--slate-6)' }}>
                 {/* VTuber Profile Card */}
                 <div
                   className="shrink-0 border-r cursor-pointer flex items-center justify-center"
@@ -551,6 +516,8 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+            </div>
+          )}
         </div>
 
         {/* TRADING PANEL - Using Component */}
