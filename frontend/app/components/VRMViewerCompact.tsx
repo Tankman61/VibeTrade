@@ -308,23 +308,28 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
   };
 
   useEffect(() => {
-    console.log('🎭 VRMViewerCompact mounting/remounting for viewMode:', viewMode, 'modelPath:', modelPath);
+    console.log('🎭 VRMViewerCompact mounting/remounting for viewMode:', viewMode, 'modelPath:', modelPath, 'mount count:', Date.now());
 
-    // Reset animation state when modelPath changes (new character selected)
-    if (initializedRef.current && modelPath !== (containerRef.current as any)?.dataset?.lastModel) {
-      console.log('🔄 Character changed to:', modelPath, '- resetting animation state');
-      initializedRef.current = false;
-      if (animationChainTimeoutRef.current) {
-        clearTimeout(animationChainTimeoutRef.current);
-        animationChainTimeoutRef.current = null;
+    // Always reset animation state on mount to ensure clean slate
+    console.log('🔄 Resetting animation state for fresh mount');
+    initializedRef.current = false;
+    if (animationChainTimeoutRef.current) {
+      clearTimeout(animationChainTimeoutRef.current);
+      animationChainTimeoutRef.current = null;
+    }
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+    }
+    currentActionRef.current = null;
+    currentChainRef.current = [];
+    currentChainIndexRef.current = 0;
+    setCurrentCategory(null);
+
+    // Clear any existing DOM content
+    if (containerRef.current) {
+      while (containerRef.current.firstChild) {
+        containerRef.current.removeChild(containerRef.current.firstChild);
       }
-      if (mixerRef.current) {
-        mixerRef.current.stopAllAction();
-      }
-      currentActionRef.current = null;
-      currentChainRef.current = [];
-      currentChainIndexRef.current = 0;
-      setCurrentCategory(null);
     }
 
     // Prevent duplicate initialization within this component instance
@@ -356,6 +361,17 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
     if (containerRef.current) {
       (containerRef.current as any).dataset.lastModel = modelPath;
     }
+
+    // Add a fallback animation starter that triggers after VRM loads
+    const fallbackAnimationStarter = () => {
+      if (vrmRef.current && mixerRef.current && currentChainRef.current.length === 0) {
+        console.log('🎬 Fallback: Starting idle animations as backup');
+        playAnimationChain(animationCategories.idle);
+      }
+    };
+
+    // Set up the fallback to trigger after a delay
+    const fallbackTimeout = setTimeout(fallbackAnimationStarter, 1000);
 
       scene = new THREE.Scene();
       scene.background = null; // Transparent background
@@ -488,15 +504,30 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
               // Load hip hop animation for landing page
               loadLandingAnimation(vrm, mixer);
             } else {
-              // Start idle animation chain after a brief delay to ensure everything is ready
-              setTimeout(() => {
+              // Start idle animation chain with multiple attempts to ensure it always works
+              const startAnimations = () => {
                 if (vrmRef.current && mixerRef.current) {
                   console.log('🎬 Starting idle animations for dashboard view');
                   playAnimationChain(animationCategories.idle);
-                } else {
-                  console.warn('⚠️ VRM or mixer not ready for dashboard animations');
+                  return true;
                 }
-              }, 200); // Slightly longer delay for remounting
+                return false;
+              };
+
+              // Try immediately
+              if (!startAnimations()) {
+                // If not ready, try after a short delay
+                setTimeout(() => {
+                  if (!startAnimations()) {
+                    // If still not ready, try one more time with longer delay
+                    setTimeout(() => {
+                      if (!startAnimations()) {
+                        console.error('❌ Failed to start animations after multiple attempts');
+                      }
+                    }, 500);
+                  }
+                }, 200);
+              }
             }
           },
           undefined,
@@ -599,6 +630,10 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       if (animationChainTimeoutRef.current) {
         clearTimeout(animationChainTimeoutRef.current);
         animationChainTimeoutRef.current = null;
+      }
+      // Clear fallback timeout
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
       }
 
       // Stop all animations
