@@ -134,7 +134,7 @@ export default function Home() {
     };
 
     fetchRisk();
-    const interval = setInterval(fetchRisk, 5000);
+    const interval = setInterval(fetchRisk, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -171,7 +171,7 @@ export default function Home() {
     };
 
     fetchSentiment();
-    const interval = setInterval(fetchSentiment, 5000);
+    const interval = setInterval(fetchSentiment, 10000);
     return () => clearInterval(interval);
   }, []);
 

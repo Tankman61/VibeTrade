@@ -133,7 +133,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     };
 
     fetchSentiment();
-    const interval = setInterval(fetchSentiment, 5000);
+    const interval = setInterval(fetchSentiment, 10000);
     return () => clearInterval(interval);
   }, []);
 
