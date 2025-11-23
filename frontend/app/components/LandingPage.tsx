@@ -73,7 +73,7 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
 
   return (
     <div
-      className="h-[200vh] bg-gradient-to-br from-pink-100 via-pink-200 to-pink-300 overflow-x-hidden"
+      className="min-h-[200vh] w-full bg-gradient-to-br from-pink-100 via-pink-200 to-pink-300 overflow-x-hidden"
       style={{
         background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 25%, #f9a8d4 50%, #f472b6 75%, #ec4899 100%)',
       }}
