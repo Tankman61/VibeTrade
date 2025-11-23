@@ -1,17 +1,18 @@
 """
 Test script for Anomaly Worker
-Tests anomaly detection and broadcasts alerts to frontend via WebSocket
+Tests anomaly detection and triggers alerts via HTTP endpoint
 
 Usage:
     python test_anomaly_worker.py
     
 Make sure FastAPI is running before executing this test.
-The test will connect to the running FastAPI instance and broadcast
-ANOMALY_ALERT messages that will appear on the frontend.
+The test will call the FastAPI endpoint to trigger anomaly alerts
+that will appear on the frontend.
 """
 import asyncio
 import sys
 import os
+import httpx
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -20,24 +21,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.services.anomaly_monitor import AnomalyMonitor
-from app.workers.anomaly_worker import AnomalyWorker
-from app.api.market_websocket import manager as ws_manager
 
 
-class MockWebSocketManager:
-    """Mock WebSocket manager that uses the real FastAPI ConnectionManager"""
-    
-    def __init__(self, connection_manager):
-        self.connection_manager = connection_manager
-    
-    async def broadcast(self, message: dict):
-        """Broadcast message to all crypto WebSocket connections"""
-        # Broadcast to all crypto connections (BTC is the main one)
-        await self.connection_manager.broadcast_to_subscribers(
-            "crypto", 
-            "BTC", 
-            message
-        )
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 
 async def test_anomaly_monitor():
@@ -97,129 +83,82 @@ async def test_anomaly_monitor():
     print("\n" + "=" * 60)
 
 
-async def test_anomaly_worker_cycle():
-    """Test a single cycle of the anomaly worker"""
+async def test_trigger_anomaly_via_api():
+    """Test triggering an anomaly alert via HTTP endpoint"""
     print("\n" + "=" * 60)
-    print("🧪 Testing Anomaly Worker Cycle")
+    print("🧪 Testing Anomaly Alert via HTTP API")
     print("=" * 60)
     
-    worker = AnomalyWorker()
-    
-    print("\n🔄 Running one cycle...")
-    await worker._run_cycle()
-    
-    print("\n✅ Cycle complete!")
-    print("   Check logs above for any anomalies detected")
-    print("\n💡 What to look for:")
-    print("   - Finnhub price anomalies")
-    print("   - Portfolio balance changes")
-    print("   - Market context anomalies")
-    print("   - Trading activity anomalies")
-    
-    print("\n" + "=" * 60)
-
-
-async def test_anomaly_broadcast_to_frontend():
-    """Test broadcasting anomaly alerts to frontend via WebSocket"""
-    print("\n" + "=" * 60)
-    print("🧪 Testing Anomaly Broadcast to Frontend")
-    print("=" * 60)
-    
-    # Create a mock monitor and inject anomalies
-    monitor = AnomalyMonitor()
-    
-    # Build baseline
-    print("\n📊 Building baseline...")
-    for i in range(5):
-        monitor.add_metric_value("btc_price", 96500.0 + i * 10)
-    
-    # Inject a significant anomaly
-    print("\n🚨 Injecting anomaly...")
-    anomaly = monitor.detect_anomalies("btc_price", 100500.0)  # ~4% spike
-    
-    if anomaly:
-        print(f"   ✅ Anomaly detected!")
-        print(f"   Message: {anomaly['message']}")
-        print(f"   Type: {anomaly['anomaly_type']}")
-        print(f"   Severity: {anomaly['severity']}")
-        
-        # Create mock WebSocket manager using real FastAPI connection manager
-        mock_ws_manager = MockWebSocketManager(ws_manager)
-        
-        # Create worker with WebSocket manager
-        print("\n🤖 Broadcasting anomaly alert to frontend...")
-        worker = AnomalyWorker(websocket_manager=mock_ws_manager)
-        
-        # Format anomaly with context
-        anomaly_with_context = {
-            **anomaly,
-            "context": f"Finnhub BTC price anomaly: $100,500.00",
-            "source": "finnhub",
-            "symbol": "BTC"
-        }
-        
-        # Ping agent with anomaly (will broadcast via WebSocket)
-        await worker._ping_agent_with_anomalies([anomaly_with_context])
-        
-        print("   ✅ Anomaly alert broadcasted!")
-        print("   👀 Check your frontend - you should see the ANOMALY_ALERT message")
-        
-        # Check how many connections are active
-        active_connections = len(ws_manager.active_connections.get("crypto", set()))
-        print(f"   📡 Connected clients: {active_connections}")
-        if active_connections == 0:
-            print("   ⚠️  WARNING: No active WebSocket connections!")
-            print("      Make sure your frontend is connected to /ws/alpaca/crypto")
-    else:
-        print("   ❌ Anomaly not detected")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Test 1: Custom test anomaly
+            print("\n📡 Triggering custom test anomaly...")
+            response = await client.post(
+                f"{API_BASE_URL}/api/test/anomaly",
+                json={
+                    "message": "BTC price spike detected in test",
+                    "severity": "high",
+                    "anomaly_type": "sudden_change",
+                    "metric": "btc_price"
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"   ✅ Alert sent successfully!")
+                print(f"   📡 Connected clients: {result.get('connections', 0)}")
+                if result.get('success'):
+                    print("   👀 Check your frontend - the alert should appear now!")
+                else:
+                    print("   ⚠️  No active WebSocket connections")
+            else:
+                print(f"   ❌ Failed with status {response.status_code}: {response.text}")
+            
+            # Wait a bit between requests
+            await asyncio.sleep(2)
+            
+            # Test 2: Simulated realistic anomaly
+            print("\n📡 Triggering simulated realistic anomaly...")
+            response = await client.post(
+                f"{API_BASE_URL}/api/test/anomaly/simulated"
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"   ✅ Simulated alert sent successfully!")
+                print(f"   📡 Connected clients: {result.get('connections', 0)}")
+                if result.get('success'):
+                    print("   👀 Check your frontend - the alert should appear now!")
+                    if 'anomaly' in result:
+                        anomaly = result['anomaly']
+                        print(f"   📊 Anomaly details: {anomaly.get('message', 'N/A')}")
+                        print(f"   🔴 Severity: {anomaly.get('severity', 'N/A')}")
+                else:
+                    print("   ⚠️  No active WebSocket connections")
+            else:
+                print(f"   ❌ Failed with status {response.status_code}: {response.text}")
+                
+    except httpx.ConnectError:
+        print(f"\n   ❌ ERROR: Could not connect to FastAPI server at {API_BASE_URL}")
+        print("   💡 Make sure FastAPI is running before executing this test!")
+    except Exception as e:
+        print(f"\n   ❌ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
     
     print("\n" + "=" * 60)
 
 
-async def test_simulated_anomaly_broadcast():
-    """Test sending a simulated anomaly alert directly to frontend"""
-    print("\n" + "=" * 60)
-    print("🧪 Testing Simulated Anomaly Broadcast")
-    print("=" * 60)
-    
-    # Create mock WebSocket manager
-    mock_ws_manager = MockWebSocketManager(ws_manager)
-    
-    # Create a simulated anomaly
-    simulated_anomaly = {
-        "metric": "btc_price",
-        "current_value": 100500.0,
-        "previous_value": 96500.0,
-        "rate_of_change": 0.0414,
-        "change_percent": 4.14,
-        "anomaly_type": "sudden_change",
-        "severity": "high",
-        "message": "btc_price changed 4.14% suddenly (96500.00 → 100500.00)",
-        "context": "Finnhub BTC price anomaly: $100,500.00",
-        "source": "finnhub",
-        "symbol": "BTC"
-    }
-    
-    print("\n🚨 Creating simulated anomaly...")
-    print(f"   Type: {simulated_anomaly['anomaly_type']}")
-    print(f"   Severity: {simulated_anomaly['severity']}")
-    print(f"   Message: {simulated_anomaly['message']}")
-    
-    # Create worker and broadcast
-    print("\n📡 Broadcasting to frontend...")
-    worker = AnomalyWorker(websocket_manager=mock_ws_manager)
-    await worker._ping_agent_with_anomalies([simulated_anomaly])
-    
-    # Check connections
-    active_connections = len(ws_manager.active_connections.get("crypto", set()))
-    print(f"\n   ✅ Alert sent!")
-    print(f"   📡 Active WebSocket connections: {active_connections}")
-    if active_connections > 0:
-        print("   👀 Check your frontend - the alert should appear now!")
-    else:
-        print("   ⚠️  No active connections - frontend may not be connected")
-    
-    print("\n" + "=" * 60)
+async def check_server_connection():
+    """Check if the FastAPI server is running"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{API_BASE_URL}/health")
+            if response.status_code == 200:
+                return True
+            return False
+    except:
+        return False
 
 
 async def main():
@@ -227,25 +166,26 @@ async def main():
     print("\n" + "=" * 60)
     print("🚀 Anomaly Detection System Test Suite")
     print("=" * 60)
-    print("\n⚠️  Make sure FastAPI is running before executing this test!")
-    print("   The test will broadcast alerts to connected frontend clients.\n")
+    print(f"\n🔗 API Base URL: {API_BASE_URL}")
+    
+    # Check if server is running
+    print("\n🔍 Checking server connection...")
+    if await check_server_connection():
+        print("   ✅ Server is running!")
+    else:
+        print(f"   ❌ Server is NOT running at {API_BASE_URL}")
+        print("   💡 Please start FastAPI server first:")
+        print("      cd backend-new")
+        print("      ./run_fastapi.sh")
+        print("\n   Exiting...")
+        return
     
     try:
-        # Check if WebSocket manager is available
-        active_connections = len(ws_manager.active_connections.get("crypto", set()))
-        print(f"📡 Currently connected WebSocket clients: {active_connections}\n")
-        
-        # Test 1: Basic anomaly detection
+        # Test 1: Basic anomaly detection (local, no server needed)
         await test_anomaly_monitor()
         
-        # Test 2: Single worker cycle (with real data)
-        await test_anomaly_worker_cycle()
-        
-        # Test 3: Broadcast to frontend with real anomaly
-        await test_anomaly_broadcast_to_frontend()
-        
-        # Test 4: Simulated anomaly broadcast
-        await test_simulated_anomaly_broadcast()
+        # Test 2: Trigger anomaly via HTTP API (requires server)
+        await test_trigger_anomaly_via_api()
         
         print("\n" + "=" * 60)
         print("✅ All tests completed!")

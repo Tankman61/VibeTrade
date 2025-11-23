@@ -23,6 +23,7 @@ from app.api.trading import router as trading_router
 from app.api.portfolio import router as portfolio_router
 from app.api.orders import router as orders_router
 from app.api.market_data import router as market_data_router
+from app.api.test_anomaly import router as test_anomaly_router
 from app.api.debug import router as debug_router
 from app.api.agent import router as agent_router
 from app.api.voice_websocket import router as voice_router
@@ -130,6 +131,7 @@ app.include_router(trading_router, prefix="/api", tags=["trading"])
 app.include_router(portfolio_router, prefix="/api", tags=["portfolio"])
 app.include_router(orders_router, prefix="/api", tags=["orders"])
 app.include_router(market_data_router, prefix="/api", tags=["market"])
+app.include_router(test_anomaly_router, prefix="/api", tags=["test"])
 app.include_router(agent_router, tags=["agent"])  # LangGraph agent chat
 app.include_router(voice_router, tags=["voice"])  # Voice WebSocket for STT/TTS
 app.include_router(debug_router, tags=["debug"])  # Debug endpoints for testing crashes
