@@ -165,6 +165,9 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
   // Animation chaining system - plays animations in sequence with smooth crossfades
   const playAnimationChain = (animations: Array<{ name: string; path: string; emoji: string }>) => {
+    console.log('🎬 playAnimationChain called with', animations.length, 'animations');
+    console.log('VRM ready:', !!vrmRef.current, 'Mixer ready:', !!mixerRef.current);
+
     if (!vrmRef.current || !mixerRef.current || animations.length === 0) {
       console.warn('⚠️ Cannot play animation chain: VRM/mixer not ready or no animations');
       return;
@@ -192,12 +195,18 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       currentChainIndexRef.current++;
 
       const loader = new FBXLoader();
+      console.log('📂 Loading animation from:', animation.path);
+      console.log('Animation name:', animation.name);
       loader.load(
         animation.path,
         (fbx: any) => {
+          console.log('✅ FBX animation loaded successfully:', animation.path);
           const vrm = vrmRef.current;
           const mixer = mixerRef.current;
-          if (!vrm || !mixer) return;
+          if (!vrm || !mixer) {
+            console.warn('⚠️ VRM or mixer not available when FBX loaded');
+            return;
+          }
 
           let clipToPlay: THREE.AnimationClip | null = null;
 
@@ -230,12 +239,16 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
             clipToPlay = fbx.animations[0];
           }
 
-          if (clipToPlay) {
-            console.log('✅ Animation clip ready:', {
-              name: clipToPlay.name,
-              duration: clipToPlay.duration,
-              tracks: clipToPlay.tracks.length
-            });
+            if (clipToPlay) {
+              console.log('✅ Animation clip ready:', {
+                name: clipToPlay.name,
+                duration: clipToPlay.duration,
+                tracks: clipToPlay.tracks.length
+              });
+
+              // Create action on the VRM scene explicitly
+              const newAction = mixer.clipAction(clipToPlay, vrm.scene);
+              console.log('🎬 Created animation action, playing now...');
 
             // Create action on the VRM scene explicitly
             const newAction = mixer.clipAction(clipToPlay, vrm.scene);
@@ -455,8 +468,12 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
               // Load hip hop animation for landing page
               loadLandingAnimation(vrm, mixer);
             } else {
-              // Start idle animation chain immediately for dashboard
-              playAnimationChain(animationCategories.idle);
+              // Start idle animation chain after a brief delay to ensure everything is ready
+              setTimeout(() => {
+                if (vrmRef.current && mixerRef.current) {
+                  playAnimationChain(animationCategories.idle);
+                }
+              }, 100); // Much shorter delay
             }
           },
           undefined,
