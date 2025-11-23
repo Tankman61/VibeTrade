@@ -36,7 +36,7 @@ class TriggerMonitorWorker:
         self.openai = get_openai_client()
         self.ws_manager = websocket_manager  # For sending WebSocket alerts
         
-        self.interval_seconds = 1
+        self.interval_seconds = 10
         self.is_running = False
         self._last_alert_time = None
         self._alert_cooldown_seconds = 30  # Don't spam alerts
@@ -46,7 +46,7 @@ class TriggerMonitorWorker:
     async def start(self):
         """Start the worker loop"""
         self.is_running = True
-        logger.info("🚀 Trigger Monitor Worker started (interval: 1s)")
+        logger.info("🚀 Trigger Monitor Worker started (interval: 10s)")
         
         while self.is_running:
             try:
@@ -54,7 +54,7 @@ class TriggerMonitorWorker:
             except Exception as e:
                 logger.error(f"❌ Monitor cycle failed: {e}", exc_info=True)
             
-            # Wait 1 second before next cycle
+            # Wait 10 seconds before next cycle
             await asyncio.sleep(self.interval_seconds)
     
     async def stop(self):
