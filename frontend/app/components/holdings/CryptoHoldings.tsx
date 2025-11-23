@@ -509,9 +509,16 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
 
     setIsRecording(false);
 
-    wsVoiceRef.current?.send(JSON.stringify({
-      type: "audio_end"
-    }));
+    // Only send if WebSocket is open
+    if (wsVoiceRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsVoiceRef.current.send(JSON.stringify({
+          type: "audio_end"
+        }));
+      } catch (err) {
+        console.warn("Failed to send audio_end message:", err);
+      }
+    }
 
     console.log("🛑 Stopped voice recording");
   };

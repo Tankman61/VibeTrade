@@ -12,8 +12,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "DIVERGENCE | The Agentic Risk Terminal",
-  description: "Real-time risk console for high-frequency traders",
+  title: "VibeTrade",
+  description: "VibeTrade is an agentic trading system built on real-time market data, portfolio state, and risk rules. It doesn't just generate responses.",
 };
 
 export default function RootLayout({
