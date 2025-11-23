@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 class PolymarketClient:
@@ -10,115 +11,187 @@ class PolymarketClient:
 
     def __init__(self):
         self.gamma_url = "https://gamma-api.polymarket.com"
-        self.clob_url = "https://clob.polymarket.com"
         logger.info("✅ Polymarket client initialized")
 
-    async def fetch_btc_markets(self) -> List[Dict[str, Any]]:
-        """
-        Fetch Bitcoin-related prediction markets from Polymarket.
-        """
+    async def fetch_btc_markets(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fetch Bitcoin-related prediction markets with real URLs."""
         try:
-            url = f"{self.gamma_url}/markets"
+            # Try the /events endpoint first (returns events with nested markets)
+            # This gives us the event slug which is needed for proper URLs
+            url = f"{self.gamma_url}/events"
             params = {
-                "limit": 100,      # Fetch more, filter later
+                "limit": 1000,
                 "offset": 0,
-                "archived": "false",
-                "closed": "false",
+                "active": True,
+                "closed": False,
+                "archived": False
             }
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            logger.info(f"Fetching from {url} with params {params}")
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(url, params=params)
 
+            logger.info(f"Polymarket API status: {resp.status_code}")
+
             if resp.status_code != 200:
-                logger.warning(f"Polymarket API error {resp.status_code}")
-                return self._get_mock_markets()
+                logger.warning(f"Polymarket API error {resp.status_code}, using mock data")
+                return self._get_mock_markets()[:limit]
 
-            raw = resp.json()
-
-            # Handle both list and dict formats from Polymarket Gamma API
-            if isinstance(raw, dict):
-                # Standard Gamma format: {"data": {"markets": [...]}}
-                markets_raw = raw.get("data", {}).get("markets")
-
-                # Sometimes Polymarket returns {"markets": [...]}
-                if markets_raw is None:
-                    markets_raw = raw.get("markets")
-
-            elif isinstance(raw, list):
-                # Some endpoints return a raw list
-                markets_raw = raw
-
+            # Parse response - could be events or markets
+            response_data = resp.json()
+            
+            # Log structure to debug
+            if response_data:
+                response_type = type(response_data)
+                logger.info(f"Response type: {response_type}")
+                
+                if isinstance(response_data, list) and len(response_data) > 0:
+                    logger.info(f"First item keys: {list(response_data[0].keys())}")
+                elif isinstance(response_data, dict):
+                    logger.info(f"Response keys: {list(response_data.keys())}")
             else:
-                logger.error("❌ Unexpected Polymarket API format")
-                return self._get_mock_markets()
+                logger.warning("Empty response from Polymarket API")
+                return self._get_mock_markets()[:limit]
 
-            if not isinstance(markets_raw, list):
-                logger.error("❌ Polymarket API did not return a list of markets")
-                return self._get_mock_markets()
+            # Extract events array
+            events_list = []
+            if isinstance(response_data, list):
+                events_list = response_data
+            elif isinstance(response_data, dict):
+                # Try common wrapper keys
+                events_list = response_data.get("data", response_data.get("events", response_data.get("markets", [])))
+            
+            if not events_list:
+                logger.error(f"No events/markets found in response")
+                return self._get_mock_markets()[:limit]
+            
+            logger.info(f"Processing {len(events_list)} events/markets")
 
-            logger.debug(f"Received {len(markets_raw)} markets from Gamma API")
-
-            btc_keywords = ["bitcoin", "btc", "crypto"]
+            btc_keywords = ["bitcoin", "btc", "crypto", "eth", "ethereum"]
             results = []
-
-            for m in markets_raw:
-                title = m.get("question", "")
-                title_lc = title.lower()
-
-                if not any(k in title_lc for k in btc_keywords):
+            seen_events = set()  # Track which events we've already added
+            
+            # Debug: Log first item structure
+            if events_list and len(events_list) > 0:
+                logger.info(f"📋 Sample event structure:")
+                sample = events_list[0]
+                logger.info(f"   ticker: '{sample.get('ticker', 'N/A')}'")  
+                logger.info(f"   slug: '{sample.get('slug', 'N/A')}'")
+                logger.info(f"   title: '{sample.get('title', 'N/A')}'")
+                logger.info(f"   URL will be: https://polymarket.com/event/{sample.get('ticker') or sample.get('slug', 'N/A')}")
+            
+            # Process each event/market
+            for item in events_list:
+                # Get the CLEAN slug from event level - prefer 'ticker' over 'slug'
+                # ticker seems to be the clean URL-friendly version
+                event_slug = item.get("ticker") or item.get("slug", "")
+                event_title = item.get("title") or item.get("question", "")
+                
+                # Skip if we've already added a market from this event (avoid duplicates)
+                if event_slug in seen_events:
+                    logger.debug(f"Skipping duplicate event: {event_slug}")
                     continue
+                
+                # Check if it's an event with markets inside
+                markets_in_event = item.get("markets", [])
+                
+                # If no nested markets, treat the item itself as a market
+                if not markets_in_event:
+                    markets_in_event = [item]
+                
+                # For events with multiple markets, pick the most interesting one
+                # (highest volume) to avoid showing 20 variations of the same question
+                if len(markets_in_event) > 1:
+                    # Sort by volume and take the top one
+                    markets_in_event = sorted(
+                        markets_in_event,
+                        key=lambda x: float(x.get("volume", x.get("volumeNum", 0))),
+                        reverse=True
+                    )[:1]
+                    logger.debug(f"Event '{event_title}' has {len(item.get('markets', []))} markets, picking top by volume")
+                
+                # Process the market(s) for this event
+                for m in markets_in_event:
+                    # Get title/question
+                    title = m.get("question") or m.get("title") or event_title or m.get("description", "")
+                    
+                    if not title:
+                        continue
+                    
+                    # Check for crypto relevance
+                    if not any(k in title.lower() for k in btc_keywords):
+                        continue
 
-                # Extract “Yes” probability
-                outcomes = m.get("outcomes", [])
-                if outcomes and "price" in outcomes[0]:
-                    yes_prob = float(outcomes[0].get("price", 0.5))
-                else:
+                    # Extract "Yes" probability
                     yes_prob = 0.5
+                    
+                    # Method 1: outcomePrices array
+                    if "outcomePrices" in m and isinstance(m["outcomePrices"], list) and len(m["outcomePrices"]) > 0:
+                        yes_prob = float(m["outcomePrices"][0])
+                    # Method 2: outcomes array
+                    elif "outcomes" in m and isinstance(m["outcomes"], list) and len(m["outcomes"]) > 0:
+                        yes_prob = float(m["outcomes"][0].get("price", 0.5))
+                    # Method 3: tokens array
+                    elif "tokens" in m and isinstance(m["tokens"], list) and len(m["tokens"]) > 0:
+                        token_data = m["tokens"][0]
+                        yes_prob = float(token_data.get("price", token_data.get("lastPrice", 0.5)))
+                    # Method 4: direct price field
+                    elif "price" in m:
+                        yes_prob = float(m["price"])
 
-                # Format volume
-                volume = float(m.get("volume", 0))
-                if volume >= 1_000_000:
-                    volume_str = f"${volume/1_000_000:.1f}M"
-                elif volume >= 1_000:
-                    volume_str = f"${volume/1_000:.1f}K"
-                else:
-                    volume_str = f"${volume:.0f}"
+                    # Format volume
+                    volume = float(m.get("volume", m.get("volumeNum", m.get("volume24hr", item.get("volume", 0)))))
+                    if volume >= 1_000_000:
+                        volume_str = f"${volume/1_000_000:.1f}M"
+                    elif volume >= 1_000:
+                        volume_str = f"${volume/1_000:.1f}K"
+                    else:
+                        volume_str = f"${volume:.0f}"
 
-                # Build URL
-                url_method = "fallback"
-                # Best source-of-truth URL from Gamma API
-                market_url = (
-                    m.get("url")
-                    or m.get("pageUrl")
-                    or m.get("questionUrl")
-                    or (f"https://polymarket.com/event/{m.get('slug')}" if m.get("slug") else "https://polymarket.com")
-                )
+                    # Build correct URL using the clean event ticker/slug
+                    # Polymarket URLs are: https://polymarket.com/event/{event-ticker}
+                    market_url = "https://polymarket.com"
+                    
+                    if event_slug:
+                        # Use the parent event's ticker/slug (this is the clean one!)
+                        market_url = f"https://polymarket.com/event/{event_slug}"
+                        logger.debug(f"✅ URL: {market_url}")
+                    else:
+                        # Fallback: try to get ticker/slug from the item itself
+                        fallback_slug = item.get("ticker") or item.get("slug")
+                        if fallback_slug:
+                            market_url = f"https://polymarket.com/event/{fallback_slug}"
+                            logger.debug(f"✅ URL from item: {market_url}")
+                        else:
+                            logger.warning(f"⚠️  No ticker/slug for: {title[:50]}")
 
+                    results.append({
+                        "title": title[:200],
+                        "odds": round(yes_prob, 2),
+                        "volume": volume_str,
+                        "change": "+0%",
+                        "url": market_url
+                    })
+                    
+                    # Mark this event as processed so we don't show duplicates
+                    seen_events.add(event_slug)
 
-                logger.debug(f"Built market URL via {url_method}: {market_url}")
+            logger.info(f"✅ Found {len(results)} unique crypto-related events/markets")
+            logger.info(f"✅ Deduplicated by showing only 1 market per event")
 
-                results.append({
-                    "title": title,
-                    "odds": round(yes_prob, 2),
-                    "volume": volume_str,
-                    "change": "+0%",  # Placeholder (needs historical)
-                    "url": market_url
-                })
+            # fallback if too few results
+            if len(results) < 3:
+                logger.warning(f"Only found {len(results)} markets, adding mock data")
+                results.extend(self._get_mock_markets()[: max(0, 5 - len(results))])
 
-            # Fill with mock data if needed
-            if len(results) < 5:
-                needed = 5 - len(results)
-                results.extend(self._get_mock_markets()[:needed])
-
-            logger.info(f"✅ Fetched {len(results)} Polymarket markets")
-            return results[:10]
+            return results[:limit]
 
         except Exception as e:
-            logger.error(f"❌ Polymarket fetch failed: {e}")
-            return self._get_mock_markets()
+            logger.error(f"❌ Polymarket fetch failed: {e}", exc_info=True)
+            return self._get_mock_markets()[:limit]
 
     def _get_mock_markets(self) -> List[Dict[str, Any]]:
-        """Fallback mock markets"""
         return [
             {
                 "title": "Bitcoin > $100k by Dec 31, 2024",
@@ -158,23 +231,20 @@ class PolymarketClient:
         ]
 
     async def get_average_odds(self) -> float:
-        """Compute average odds across all BTC markets."""
+        """Compute average odds across BTC markets."""
         try:
             markets = await self.fetch_btc_markets()
             if not markets:
                 return 0.5
-
             avg = sum(m["odds"] for m in markets) / len(markets)
-            logger.info(f"Average odds = {avg:.2f}")
             return round(avg, 4)
-
         except Exception as e:
             logger.error(f"Failed to compute average odds: {e}")
             return 0.5
 
 
-# Global singleton
-_polymarket_client = None
+# singleton
+_polymarket_client: PolymarketClient | None = None
 
 
 def get_polymarket_client() -> PolymarketClient:
