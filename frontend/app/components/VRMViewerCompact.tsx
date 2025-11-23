@@ -639,6 +639,20 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
         // Camera position is set during initialization - not reset every frame
         // This allows manual camera adjustments in dev tools without being overridden
 
+        // Scroll-based camera control for landing page
+        if (viewMode === 'landing' && typeof window !== 'undefined') {
+          const scrollProgress = (window as any).landingCameraProgress || 0;
+          if (scrollProgress > 0) {
+            // Move camera backwards as user scrolls down
+            const baseZ = 0.4; // Original Z position
+            const maxZ = 2.0; // Maximum Z position when scrolled
+            const currentZ = baseZ + (scrollProgress * (maxZ - baseZ));
+
+            // Smoothly interpolate camera position
+            camera.position.z += (currentZ - camera.position.z) * 0.1;
+          }
+        }
+
         // Update animation mixer FIRST (applies bone rotations)
         if (mixerRef.current) {
           mixerRef.current.update(dt);
