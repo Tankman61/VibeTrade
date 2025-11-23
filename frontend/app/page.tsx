@@ -87,13 +87,21 @@ export default function Home() {
 
   // Handle WebSocket messages for live BTC price
   const handlePriceMessage = (message: AlpacaMessage) => {
-    if (message.type === "bar" && message.data) {
+    console.log("📨 Received WebSocket message:", message.type, message);
+    
+    if (message.type === "connected") {
+      console.log("✅ WebSocket connected:", message.message);
+    } else if (message.type === "subscribed") {
+      console.log("✅ Subscribed to symbols:", message.symbols);
+    } else if (message.type === "bar" && message.data) {
       const barData = message.data;
+      console.log("📊 Received bar data:", barData.symbol, "Price:", barData.close);
       // Check if it's BTC
       const symbol = barData.symbol?.toUpperCase() || "";
       if (symbol.includes("BTC") || symbol === "BTC") {
         const price = barData.close;
         if (price && price > 0) {
+          console.log("✅ Updating BTC price:", price);
           setCurrentPrice(
             price.toLocaleString('en-US', {
               minimumFractionDigits: 2,
@@ -101,14 +109,18 @@ export default function Home() {
             })
           );
         }
+      } else {
+        console.log("⚠️ Bar data symbol mismatch. Expected BTC, got:", symbol);
       }
     } else if (message.type === "trade" && message.data) {
       const tradeData = message.data;
+      console.log("💰 Received trade data:", tradeData.symbol, "Price:", tradeData.price);
       // Check if it's BTC
       const symbol = tradeData.symbol?.toUpperCase() || "";
       if (symbol.includes("BTC") || symbol === "BTC") {
         const price = tradeData.price;
         if (price && price > 0) {
+          console.log("✅ Updating BTC price from trade:", price);
           setCurrentPrice(
             price.toLocaleString('en-US', {
               minimumFractionDigits: 2,
@@ -116,7 +128,11 @@ export default function Home() {
             })
           );
         }
+      } else {
+        console.log("⚠️ Trade data symbol mismatch. Expected BTC, got:", symbol);
       }
+    } else if (message.type === "error") {
+      console.error("❌ WebSocket error:", message.message);
     }
   };
 
@@ -251,10 +267,41 @@ export default function Home() {
   const priceChangePrefix = parseFloat(priceChange) >= 0 ? '+' : '';
 
   return (
-    <main className={`h-screen w-screen ${showLandingPage ? 'overflow-auto' : 'overflow-hidden'}`} style={{ background: 'var(--slate-1)' }}>
+    <main className="min-h-screen w-screen overflow-y-auto" style={{ background: 'var(--slate-1)' }}>
+      {/* Landing Page Section - Scrollable */}
+      {showLandingPage && (
+        <div className="w-full">
+          <LandingPage onEnter={() => setShowLandingPage(false)} />
+        </div>
+      )}
+
+      {/* Main Dashboard Content */}
+      {!showLandingPage && (
+      <div className={`w-full h-screen`} style={{ background: 'var(--slate-1)' }}>
       {/* Top Bar */}
-      <div className="h-16 border-b flex items-center px-4 justify-between" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+      <div className={`h-16 border-b flex items-center px-4 justify-between ${showLandingPage ? 'hidden' : ''}`} style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
         <Flex align="center" gap="3">
+          {/* Logo Image - Always visible on left */}
+          <div 
+            className="shrink-0" 
+            style={{ height: '3.5rem', width: 'auto', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            onClick={() => {
+              setShowLandingPage(true);
+              setActivePortfolio(null);
+              setActiveHoldings(null);
+              setNavbarHolding(null);
+              setSideMenuOpen(false);
+              setHomeResetKey(prev => prev + 1);
+              // Scroll to top to show landing page
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <img
+              src="/logo.png"
+              alt="Logo"
+              style={{ height: '3.5rem', width: 'auto', maxHeight: '3.5rem', objectFit: 'contain' }}
+            />
+          </div>
           {navbarHolding && (
             <div>
               <Text size="6" weight="bold" style={{ color: 'var(--slate-12)' }}>
@@ -293,29 +340,31 @@ export default function Home() {
 
       </div>
 
-      {/* Side Menu */}
-      <SideMenu
-        isOpen={sideMenuOpen}
-        onToggle={() => setSideMenuOpen(!sideMenuOpen)}
-        onPortfolioSelect={(portfolio) => {
-          setActivePortfolio(portfolio);
-          setActiveHoldings(null);
-          setSideMenuOpen(false);
-        }}
-        onHoldingsSelect={(holdings) => {
-          setActiveHoldings(holdings);
-          setActivePortfolio(null);
-          setSideMenuOpen(false);
-        }}
-        onHomeSelect={() => {
-          setActivePortfolio(null);
-          setActiveHoldings(null);
-          setSideMenuOpen(false);
-          setHomeResetKey(prev => prev + 1); // Trigger reset of holdings dashboard filter
-        }}
-      />
+      {/* Side Menu - Hidden on landing page */}
+      {!showLandingPage && (
+        <SideMenu
+          isOpen={sideMenuOpen}
+          onToggle={() => setSideMenuOpen(!sideMenuOpen)}
+          onPortfolioSelect={(portfolio) => {
+            setActivePortfolio(portfolio);
+            setActiveHoldings(null);
+            setSideMenuOpen(false);
+          }}
+          onHoldingsSelect={(holdings) => {
+            setActiveHoldings(holdings);
+            setActivePortfolio(null);
+            setSideMenuOpen(false);
+          }}
+          onHomeSelect={() => {
+            setActivePortfolio(null);
+            setActiveHoldings(null);
+            setSideMenuOpen(false);
+            setHomeResetKey(prev => prev + 1); // Trigger reset of holdings dashboard filter
+          }}
+        />
+      )}
 
-      <div className="flex h-[calc(100vh-3rem)] gap-0">
+      <div className={`flex ${showLandingPage ? 'min-h-screen' : 'h-[calc(100vh-3rem)]'} gap-0`}>
         {/* LEFT COLUMN */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Main Content Area - scrollable */}
@@ -623,6 +672,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+      </div>
+      )}
 
       {/* Agent Modal */}
       <AnimatePresence>
@@ -825,12 +876,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Landing Page - Full Screen Overlay */}
-      {showLandingPage && (
-        <div className="fixed inset-0 z-[100]" style={{ background: 'transparent' }}>
-          <LandingPage onEnter={() => setShowLandingPage(false)} />
-        </div>
-      )}
 
       {/* Settings Modal */}
       <AnimatePresence>
