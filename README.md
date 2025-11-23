@@ -1,4 +1,4 @@
-Context only (fix formatting later)
+# Vibe Trade - Agentic Risk Terminal
 
 📜 PROJECT CHARTER: DIVERGENCE
 The Agentic Risk Terminal
@@ -84,4 +84,86 @@ Tech Cred: We are using WebSockets and Async Python, not just a simple REST API.
 Fintech Relevance: We are integrating Polymarket, which is the hottest topic in crypto/finance right now.
 Humor: The "Interruption" mechanic is genuinely different from every other "Chat with Data" bot.
 Go build DIVERGENCE.
+
+## 🚀 Deployment
+
+### Frontend (Next.js)
+Deploy to Vercel for optimal Next.js performance:
+
+1. **Vercel Deployment:**
+   ```bash
+   cd frontend
+   npm install -g vercel
+   vercel --prod
+   ```
+
+2. **Environment Variables:**
+   ```
+   NEXT_PUBLIC_API_URL=https://your-backend-url.onrender.com
+   ```
+
+### Backend (FastAPI)
+Deploy to Render for WebSocket support:
+
+1. **Render Deployment:**
+   - Connect your GitHub repo to Render
+   - Create a new Web Service
+   - Set build command: `pip install -r requirements.txt`
+   - Set start command: `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+2. **Environment Variables:**
+   ```
+   ALPACA_API_KEY=your_alpaca_key
+   ALPACA_SECRET_KEY=your_alpaca_secret
+   OPENAI_API_KEY=your_openai_key
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_supabase_key
+   ELEVENLABS_API_KEY=your_elevenlabs_key
+   POLYMARKET_API_KEY=your_polymarket_key
+   FINNHUB_API_KEY=your_finnhub_key
+   ```
+
+### Local Development
+Use Docker Compose for local development:
+
+```bash
+# Set up environment variables in .env file
+cp .env.example .env
+
+# Run both services
+docker-compose up --build
+```
+
+### Alternative Deployments
+- **Railway:** Excellent for FastAPI with WebSockets
+- **Heroku:** Add `websockets` buildpack
+- **AWS:** Use ECS/Fargate with Application Load Balancer
+- **DigitalOcean:** App Platform supports Python WebSockets
+
+## 🔧 Environment Setup
+
+Create a `.env` file in the backend directory:
+
+```env
+# Alpaca Trading
+ALPACA_API_KEY=your_key_here
+ALPACA_SECRET_KEY=your_secret_here
+
+# AI Services
+OPENAI_API_KEY=your_key_here
+ELEVENLABS_API_KEY=your_key_here
+
+# Data Sources
+SUPABASE_URL=your_url_here
+SUPABASE_ANON_KEY=your_key_here
+POLYMARKET_API_KEY=your_key_here
+FINNHUB_API_KEY=your_key_here
+```
+
+## 🌐 WebSocket Endpoints
+
+- `ws://your-domain/ws/alpaca/crypto` - Crypto price streaming
+- `ws://your-domain/ws/alpaca/stocks` - Stock price streaming
+- `ws://your-domain/ws/alpaca/options` - Options price streaming
+- `ws://your-domain/ws/alpaca/etfs` - ETF price streaming
 
