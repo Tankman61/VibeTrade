@@ -10,6 +10,7 @@ from typing import Dict, Optional, Set, Callable, Awaitable
 from datetime import datetime
 import websockets
 from websockets.client import WebSocketClientProtocol
+from websockets.exceptions import InvalidStatus
 
 logger = logging.getLogger(__name__)
 
@@ -221,10 +222,16 @@ class FinnhubMarketDataService:
     async def _websocket_loop(self):
         """Main WebSocket connection loop"""
         if not self.api_key:
-            logger.warning("Finnhub API key not set, cannot connect to WebSocket")
+            logger.error("❌ FINNHUB_API_KEY not set, cannot connect to WebSocket")
+            logger.error("   Market data will not be available. Please set FINNHUB_API_KEY in your .env file")
+            logger.error("   Get a free API key at: https://finnhub.io/register")
             return
         
         ws_url = f"wss://ws.finnhub.io?token={self.api_key}"
+        
+        retry_count = 0
+        max_retry_delay = 300  # Max 5 minutes
+        base_delay = 5
         
         while self._running:
             try:
@@ -232,6 +239,7 @@ class FinnhubMarketDataService:
                 async with websockets.connect(ws_url) as websocket:
                     self.ws = websocket
                     logger.info("Connected to Finnhub WebSocket")
+                    retry_count = 0  # Reset retry count on successful connection
                     
                     # Resubscribe to all symbols
                     for symbol in self.crypto_symbols:
@@ -249,12 +257,29 @@ class FinnhubMarketDataService:
                         except Exception as e:
                             logger.error(f"Error processing WebSocket message: {e}")
                             
+            except InvalidStatus as e:
+                # Handle HTTP 429 (rate limiting) and other HTTP errors
+                status_code = getattr(e, 'status_code', None) or (str(e).split(':')[0] if ':' in str(e) else None)
+                if status_code == 429 or "429" in str(e):
+                    retry_count += 1
+                    delay = min(base_delay * (2 ** retry_count), max_retry_delay)
+                    logger.warning(f"⚠️  Finnhub rate limit (HTTP 429) - waiting {delay}s before retry (attempt {retry_count})")
+                    logger.warning(f"   Finnhub has rate limits. Consider reducing subscription frequency or upgrading your plan.")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Finnhub WebSocket HTTP error: {e}")
+                    retry_count += 1
+                    delay = min(base_delay * (2 ** retry_count), max_retry_delay)
+                    await asyncio.sleep(delay)
             except websockets.exceptions.ConnectionClosed:
                 logger.warning("Finnhub WebSocket connection closed, reconnecting...")
-                await asyncio.sleep(5)
+                retry_count = 0  # Reset on normal disconnect
+                await asyncio.sleep(base_delay)
             except Exception as e:
                 logger.error(f"Finnhub WebSocket error: {e}", exc_info=True)
-                await asyncio.sleep(5)
+                retry_count += 1
+                delay = min(base_delay * (2 ** retry_count), max_retry_delay)
+                await asyncio.sleep(delay)
             finally:
                 self.ws = None
     
@@ -291,7 +316,9 @@ class FinnhubMarketDataService:
     async def subscribe_crypto(self, symbols: list[str]):
         """Subscribe to crypto symbols"""
         if not self.api_key:
-            logger.warning("Cannot subscribe: Finnhub API key not configured")
+            logger.error("❌ Cannot subscribe: FINNHUB_API_KEY environment variable not set!")
+            logger.error("   Please set FINNHUB_API_KEY in your .env file to enable market data streaming")
+            logger.error("   Get a free API key at: https://finnhub.io/register")
             return
         
         # Normalize symbols
@@ -320,7 +347,9 @@ class FinnhubMarketDataService:
     async def subscribe_stocks(self, symbols: list[str]):
         """Subscribe to stock symbols"""
         if not self.api_key:
-            logger.warning("Cannot subscribe: Finnhub API key not configured")
+            logger.error("❌ Cannot subscribe: FINNHUB_API_KEY environment variable not set!")
+            logger.error("   Please set FINNHUB_API_KEY in your .env file to enable market data streaming")
+            logger.error("   Get a free API key at: https://finnhub.io/register")
             return
         
         # Normalize symbols (stocks are usually already clean like AAPL, TSLA)

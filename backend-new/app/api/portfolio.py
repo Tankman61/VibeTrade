@@ -41,9 +41,12 @@ async def get_portfolio():
     if not trading_service.is_enabled():
         raise HTTPException(status_code=503, detail="Trading service not enabled")
 
+
     account = await trading_service.get_account()
+    print("ACCOUNT IS:", account)
     if not account:
         raise HTTPException(status_code=500, detail="Failed to fetch Alpaca account")
+  
 
     lock_state = _get_lock_state()
 
@@ -149,22 +152,66 @@ async def get_history():
     if not trading_service.is_enabled():
         raise HTTPException(status_code=503, detail="Trading service not enabled")
 
-    orders = await trading_service.get_orders(status="closed", limit=50)
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Get all orders (including new, filled, and closed)
+    all_orders = await trading_service.get_orders(status="all", limit=100)
+    logger.info(f"📋 Fetched {len(all_orders)} orders from Alpaca for history")
+    
     history = []
+    seen_ids = set()
 
-    for order in orders:
-        if not order.get("filled_at"):
+    # Add all orders that have been filled or are market orders (which execute immediately)
+    for order in all_orders:
+        order_id = order.get("id")
+        if order_id in seen_ids:
             continue
-        history.append({
-            "id": order["id"],
-            "ticker": _format_symbol(order["symbol"]),
-            "side": order["side"].upper(),
-            "amount": float(order.get("filled_qty") or order.get("qty") or 0),
-            "entry_price": float(order.get("filled_avg_price") or order.get("limit_price") or 0),
-            "exit_price": float(order.get("filled_avg_price") or order.get("limit_price") or 0),
-            "pnl": 0.0,
-            "filled_at": order.get("filled_at"),
-            "time_ago": ""
-        })
+            
+        filled_at = order.get("filled_at")
+        filled_qty = order.get("filled_qty")
+        status = order.get("status", "").lower()
+        order_type = order.get("order_type", "").lower()
+        qty = float(filled_qty or order.get("qty") or 0)
+        
+        # Include orders that:
+        # 1. Are filled (have filled_at or filled_qty)
+        # 2. Have status "filled", "partially_filled", or "closed"
+        # 3. Are market orders (which execute immediately)
+        # 4. Have been accepted/new and have a quantity
+        is_filled = filled_at is not None or (filled_qty is not None and filled_qty > 0)
+        is_filled_status = status in ["filled", "partially_filled", "closed"]
+        is_market_order = "market" in order_type
+        has_quantity = qty > 0
+        
+        if (is_filled or is_filled_status or (is_market_order and has_quantity)) and has_quantity:
+            seen_ids.add(order_id)
+            
+            # Use filled_avg_price if available, otherwise use limit_price or stop_price
+            price = order.get("filled_avg_price") or order.get("limit_price") or order.get("stop_price") or 0
+            
+            history.append({
+                "id": order_id,
+                "ticker": _format_symbol(order["symbol"]),
+                "side": order["side"].upper(),
+                "amount": qty,
+                "entry_price": float(price) if price else 0,
+                "exit_price": float(price) if price else 0,
+                "pnl": 0.0,
+                "filled_at": filled_at or order.get("created_at") or order.get("submitted_at"),
+                "time_ago": "",
+                "status": status
+            })
+            logger.debug(f"  ✅ Added order {order_id}: {order.get('side')} {qty} {order.get('symbol')} @ {price} (status: {status})")
 
-    return history
+    logger.info(f"📊 Returning {len(history)} orders in history")
+
+    # Sort by filled_at or created_at (most recent first)
+    def get_sort_key(x):
+        filled = x.get("filled_at") or ""
+        return filled if filled else "0000-00-00T00:00:00"
+    
+    history.sort(key=get_sort_key, reverse=True)
+    
+    # Limit to 50 most recent
+    return history[:50]

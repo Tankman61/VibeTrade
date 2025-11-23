@@ -24,8 +24,8 @@ async def get_risk_monitor():
     """
     db = get_supabase()
 
-    # Get latest market_context
-    context_result = db.table("market_context")\
+    # Get latest market_context using the wrapper's client
+    context_result = db.client.table("market_context")\
         .select("*")\
         .order("created_at", desc=True)\
         .limit(1)\
@@ -61,7 +61,7 @@ async def get_risk_monitor():
         risk_level = "High"
 
     # Get watchlist
-    watchlist_result = db.table("watchlist")\
+    watchlist_result = db.client.table("watchlist")\
         .select("ticker, price_change_24h")\
         .order("ticker")\
         .execute()
@@ -103,7 +103,7 @@ async def get_polymarket():
     """Get Polymarket prediction markets"""
     db = get_supabase()
 
-    result = db.table("feed_items")\
+    result = db.client.table("feed_items")\
         .select("title, metadata")\
         .eq("source", "POLYMARKET")\
         .order("created_at", desc=True)\
@@ -132,7 +132,7 @@ async def get_reddit(subreddit: Optional[str] = Query("All", description="Filter
     """Get Reddit posts with optional subreddit filter"""
     db = get_supabase()
 
-    result = db.table("feed_items")\
+    result = db.client.table("feed_items")\
         .select("title, metadata")\
         .eq("source", "REDDIT")\
         .order("created_at", desc=True)\
@@ -168,7 +168,7 @@ async def get_sentiment():
     """Get aggregated sentiment stats from Reddit, Polymarket, etc."""
     db = get_supabase()
 
-    result = db.table("market_context")\
+    result = db.client.table("market_context")\
         .select("sentiment_bullish, sentiment_bearish, sentiment_score, post_volume_24h")\
         .order("created_at", desc=True)\
         .limit(1)\

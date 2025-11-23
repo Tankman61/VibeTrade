@@ -8,6 +8,8 @@ import SideMenu from "./components/SideMenu";
 import CryptoPortfolio from "./components/portfolios/CryptoPortfolio";
 import StocksPortfolio from "./components/portfolios/StocksPortfolio";
 import OptionsPortfolio from "./components/portfolios/OptionsPortfolio";
+import { useAlpacaWebSocket } from "@/hooks/useAlpacaWebSocket";
+import type { AlpacaMessage } from "@/lib/websocket";
 import ETFsPortfolio from "./components/portfolios/ETFsPortfolio";
 import CryptoHoldings from "./components/holdings/CryptoHoldings";
 import StocksHoldings from "./components/holdings/StocksHoldings";
@@ -43,11 +45,12 @@ export default function Home() {
   const [activeTradingTab, setActiveTradingTab] = useState<"risk" | "trade" | "portfolio" | "history">("trade");
   const [hoveredIcon, setHoveredIcon] = useState<"risk" | "trade" | "portfolio" | "history" | "settings" | null>(null);
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
+  const [riskScore, setRiskScore] = useState<number>(0);
   const [currentPrice, setCurrentPrice] = useState("0");
   const [priceChange, setPriceChange] = useState("0");
   const [currentTime, setCurrentTime] = useState("");
   const [messageInput, setMessageInput] = useState("");
-  const [positionSize, setPositionSize] = useState("0.5");
+  const [positionSize, setPositionSize] = useState("");
   const [tradeType, setTradeType] = useState<"long" | "short">("long");
   const [stopLoss, setStopLoss] = useState("97,200");
   const [takeProfit, setTakeProfit] = useState("100,500");
@@ -66,27 +69,56 @@ export default function Home() {
   const [loadingReddit, setLoadingReddit] = useState(true);
   const [loadingSentiment, setLoadingSentiment] = useState(true);
 
-  // Fetch BTC price and risk level from risk monitor
-  useEffect(() => {
-    const fetchPriceAndRisk = async () => {
-      try {
-        const riskData = await api.getRiskMonitor();
-        const market = riskData?.market_overview;
-
-        if (market) {
+  // Handle WebSocket messages for live BTC price
+  const handlePriceMessage = (message: AlpacaMessage) => {
+    if (message.type === "bar" && message.data) {
+      const barData = message.data;
+      // Check if it's BTC
+      const symbol = barData.symbol?.toUpperCase() || "";
+      if (symbol.includes("BTC") || symbol === "BTC") {
+        const price = barData.close;
+        if (price && price > 0) {
           setCurrentPrice(
-            market.btc_price.toLocaleString('en-US', {
+            price.toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })
           );
-          setPriceChange(market.price_change_24h.toFixed(2));
-        } else {
-          setCurrentPrice("0.00");
-          setPriceChange("0.00");
         }
+      }
+    } else if (message.type === "trade" && message.data) {
+      const tradeData = message.data;
+      // Check if it's BTC
+      const symbol = tradeData.symbol?.toUpperCase() || "";
+      if (symbol.includes("BTC") || symbol === "BTC") {
+        const price = tradeData.price;
+        if (price && price > 0) {
+          setCurrentPrice(
+            price.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          );
+        }
+      }
+    }
+  };
 
+  // WebSocket connection for live BTC price updates
+  useAlpacaWebSocket({
+    symbols: ["BTC"],
+    dataType: "crypto",
+    onMessage: handlePriceMessage,
+    autoConnect: true,
+  });
+
+  // Fetch risk level from risk monitor (price comes from WebSocket)
+  useEffect(() => {
+    const fetchRisk = async () => {
+      try {
+        const riskData = await api.getRiskMonitor();
         const score = riskData?.risk_level?.score ?? 0;
+        setRiskScore(score);
         if (score < 40) {
           setRiskLevel("low");
         } else if (score < 70) {
@@ -95,15 +127,14 @@ export default function Home() {
           setRiskLevel("high");
         }
       } catch (error) {
-        console.error("Failed to fetch price and risk:", error);
-        setCurrentPrice("0.00");
-        setPriceChange("0.00");
+        console.error("Failed to fetch risk:", error);
         setRiskLevel("low");
+        setRiskScore(0);
       }
     };
 
-    fetchPriceAndRisk();
-    const interval = setInterval(fetchPriceAndRisk, 2000);
+    fetchRisk();
+    const interval = setInterval(fetchRisk, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -441,6 +472,8 @@ export default function Home() {
             setStopLoss={setStopLoss}
             takeProfit={takeProfit}
             setTakeProfit={setTakeProfit}
+            riskLevel={riskLevel}
+            riskScore={riskScore}
           />
         )}
 

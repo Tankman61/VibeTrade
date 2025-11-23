@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from app.services.alpaca_trading import trading_service
+from app.api.market_websocket import manager
 
 router = APIRouter()
 
@@ -62,25 +63,89 @@ async def create_order(order: CreateOrderRequest):
         raise HTTPException(status_code=503, detail="Trading service not enabled")
 
     symbol = _normalize_symbol(order.ticker)
+    # Convert symbol to Alpaca format (BTC/USD -> BTCUSD)
+    alpaca_symbol = symbol.replace("/", "").replace("-", "").upper()
     side = order.side.lower()
 
-    if order.order_type.upper() == "MARKET":
-        result = await trading_service.place_market_order(symbol, order.amount, side)
-    elif order.order_type.upper() == "LIMIT":
-        if order.limit_price is None:
-            raise HTTPException(status_code=400, detail="LIMIT orders require limit_price")
-        result = await trading_service.place_limit_order(symbol, order.amount, side, order.limit_price)
-    elif order.order_type.upper() == "STOP_LOSS":
-        if order.limit_price is None:
-            raise HTTPException(status_code=400, detail="STOP_LOSS orders require limit_price (stop price)")
-        result = await trading_service.place_stop_order(symbol, order.amount, side, order.limit_price)
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported order_type")
+    try:
+        if order.order_type.upper() == "MARKET":
+            result = await trading_service.place_market_order(alpaca_symbol, order.amount, side)
+        elif order.order_type.upper() == "LIMIT":
+            if order.limit_price is None:
+                raise HTTPException(status_code=400, detail="LIMIT orders require limit_price")
+            result = await trading_service.place_limit_order(alpaca_symbol, order.amount, side, order.limit_price)
+        elif order.order_type.upper() == "STOP_LOSS":
+            if order.limit_price is None:
+                raise HTTPException(status_code=400, detail="STOP_LOSS orders require limit_price (stop price)")
+            result = await trading_service.place_stop_order(alpaca_symbol, order.amount, side, order.limit_price)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported order_type")
 
-    if not result:
-        raise HTTPException(status_code=500, detail="Failed to place order")
+        if not result:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Order placement returned None for {order.order_type} {side} {order.amount} {alpaca_symbol}")
+            # Check if trading service is enabled
+            if not trading_service.is_enabled():
+                raise HTTPException(status_code=503, detail="Trading service not enabled - check Alpaca API keys")
+            raise HTTPException(status_code=500, detail=f"Failed to place order - check backend logs for details. Symbol: {alpaca_symbol}")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Trading client not initialized
+        raise HTTPException(status_code=503, detail=str(e))
+    except RuntimeError as e:
+        # Order placement error from trading service
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Order placement error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to place order: {str(e)}")
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error placing order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to place order: {str(e)}")
 
-    result["ticker"] = _format_symbol(result["symbol"])
+    # Ensure result has required fields
+    if "symbol" not in result:
+        result["symbol"] = symbol
+    result["ticker"] = _format_symbol(result.get("symbol", symbol))
+    
+    # Broadcast order update via WebSocket
+    try:
+        # Safely extract order fields
+        order_type = result.get("order_type", "")
+        side = result.get("side", order.side)
+        
+        # Handle case where order_type might be an enum value
+        if hasattr(order_type, 'value'):
+            order_type = order_type.value
+        if hasattr(side, 'value'):
+            side = side.value
+            
+        order_type_str = str(order_type).upper() if order_type else ""
+        side_str = str(side).upper() if side else ""
+        
+        order_update = {
+            "type": "order_update",
+            "data": {
+                "id": result.get("id"),
+                "ticker": result.get("ticker", _format_symbol(result.get("symbol", ""))),
+                "order_type": f"{order_type_str} {side_str}",
+                "amount": result.get("qty") or result.get("notional") or order.amount,
+                "limit_price": result.get("limit_price"),
+                "status": result.get("status", "new"),
+                "created_at": result.get("created_at"),
+                "side": side_str,
+            }
+        }
+        # Broadcast to all crypto connections (since we're trading BTC)
+        await manager.broadcast_to_subscribers("crypto", "BTC", order_update)
+    except Exception as e:
+        # Don't fail the order placement if WebSocket broadcast fails
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to broadcast order update: {e}", exc_info=True)
+    
     return result
 
 

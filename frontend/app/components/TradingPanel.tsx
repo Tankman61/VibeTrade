@@ -16,6 +16,8 @@ interface TradingPanelProps {
   setStopLoss: (value: string) => void;
   takeProfit: string;
   setTakeProfit: (value: string) => void;
+  riskLevel: "low" | "medium" | "high";
+  riskScore: number;
 }
 
 export default function TradingPanel({
@@ -28,10 +30,19 @@ export default function TradingPanel({
   stopLoss,
   setStopLoss,
   takeProfit,
-  setTakeProfit
+  setTakeProfit,
+  riskLevel,
+  riskScore
 }: TradingPanelProps) {
   return (
-    <div className="flex flex-col border-r h-full overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+    <div className="flex flex-col border-r overflow-hidden" style={{ 
+      background: 'var(--slate-3)', 
+      borderColor: 'var(--slate-6)',
+      height: '800px',
+      minHeight: 0,
+      position: 'relative',
+      zIndex: 10
+    }}>
       {activeTradingTab === "risk" && <RiskMonitorTab />}
       {activeTradingTab === "trade" && (
         <TradingTab
@@ -44,6 +55,8 @@ export default function TradingPanel({
           setStopLoss={setStopLoss}
           takeProfit={takeProfit}
           setTakeProfit={setTakeProfit}
+          riskLevel={riskLevel}
+          riskScore={riskScore}
         />
       )}
       {activeTradingTab === "portfolio" && <PortfolioTab />}

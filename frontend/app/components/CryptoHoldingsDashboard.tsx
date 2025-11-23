@@ -85,12 +85,12 @@ function HoldingCard({ holding, currentPrice, isConnected, onClick }: HoldingCar
     }
   };
 
-  // WebSocket connection for live prices
+  // WebSocket connection - only allow Bitcoin subscriptions to avoid port issues
   useAlpacaWebSocket({
-    symbols: [holding.symbol],
-    dataType: holding.type,
+    symbols: holding.type === "crypto" && (holding.symbol === "BTC" || holding.symbol?.includes("BTC")) ? ["BTC"] : [],
+    dataType: "crypto", // Force crypto type, only BTC will actually subscribe
     onMessage: handleMessage,
-    autoConnect: true,
+    autoConnect: holding.type === "crypto" && (holding.symbol === "BTC" || holding.symbol?.includes("BTC")),
   });
 
   // Update local state when props change

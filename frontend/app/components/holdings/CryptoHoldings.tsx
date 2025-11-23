@@ -8,7 +8,6 @@ import { useAlpacaWebSocket } from "@/hooks/useAlpacaWebSocket";
 import type { AlpacaMessage } from "@/lib/websocket";
 import { transformBarToChartData } from "@/lib/alpacaDataTransform";
 import PolymarketPanel from "../PolymarketPanel";
-import TargetPanel from "../TargetPanel";
 import { DropdownMenu, ChevronDownIcon } from "@radix-ui/themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { api, type RedditPost, type SentimentStats } from "@/app/lib/api";
@@ -97,6 +96,9 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   const [sentimentStats, setSentimentStats] = useState<SentimentStats | null>(null);
   const [loadingReddit, setLoadingReddit] = useState(true);
   const [loadingSentiment, setLoadingSentiment] = useState(true);
+  
+  // Sentiment score label
+  const sentimentScoreLabel = sentimentStats ? (sentimentStats.score > 0 ? `+${sentimentStats.score}` : `${sentimentStats.score}`) : '0';
 
   // Fetch Reddit posts
   useEffect(() => {
@@ -258,21 +260,26 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   const handleMessage = (message: AlpacaMessage) => {
     if (message.type === "connected") {
       setIsConnected(true);
-      console.log(`✅ Connected to crypto stream:`, message.message);
+      // console.log(`✅ Connected to crypto stream:`, message.message);
     } else if (message.type === "subscribed") {
-      console.log(`✅ Subscribed to symbols:`, message.symbols);
+      // console.log(`✅ Subscribed to symbols:`, message.symbols);
     } else if (message.type === "bar" && selectedHolding) {
       const barData = message.data;
       const messageSymbol = normalizeSymbol(barData.symbol);
       const holdingSymbol = normalizeSymbol(selectedHolding.symbol);
       
-      // Check if this message is for the selected holding
-      if (messageSymbol === holdingSymbol || barData.symbol === selectedHolding.symbol) {
-        console.log(`📊 ${selectedHolding.symbol} received bar:`, barData);
-        setCurrentPrice(barData.close);
+      // Only accept BTC messages (we only subscribe to BTC to avoid port issues)
+      // Check if message is BTC
+      const isBTC = messageSymbol === "BTC" || barData.symbol === "BTC" || barData.symbol === "BTC/USD" || barData.symbol === "BTCUSD" || barData.symbol?.includes("BTC");
+      const holdingIsBTC = holdingSymbol === "BTC" || selectedHolding.symbol === "BTC" || selectedHolding.symbol === "BTC/USD" || selectedHolding.symbol === "BTCUSD" || selectedHolding.symbol?.includes("BTC");
       
-      // Update chart with new data
-      if (seriesRef.current) {
+      if (isBTC && holdingIsBTC) {
+        // console.log(`📊 BTC received bar:`, barData);
+        setCurrentPrice(barData.close);
+        
+        // Update chart with new data
+        if (seriesRef.current && chartRef.current) {
+          // console.log(`📈 Updating chart with bar data, chartType: ${chartType}`);
           const chartData = transformBarToChartData(barData);
           
           // Ensure time is a number
@@ -321,6 +328,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               }
               hasInitialDataRef.current = true;
               chartRef.current?.timeScale().fitContent();
+              // console.log(`✅ Chart initialized with first data point`);
             } else {
               // This is a new bar with a different timestamp - add it to the array
               dataPointsRef.current.push(chartData);
@@ -334,7 +342,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               try {
                 // Update based on chart type
                 if (chartType === "candlestick" || chartType === "bar") {
-        seriesRef.current.update(chartData as any);
+                  seriesRef.current.update(chartData as any);
                 } else if (chartType === "histogram") {
                   seriesRef.current.update({
                     time: chartData.time,
@@ -364,76 +372,75 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
       const messageSymbol = normalizeSymbol(tradeData.symbol);
       const holdingSymbol = normalizeSymbol(selectedHolding.symbol);
       
-      if (messageSymbol === holdingSymbol || tradeData.symbol === selectedHolding.symbol) {
+      // Only accept BTC messages (we only subscribe to BTC to avoid port issues)
+      const isBTC = messageSymbol === "BTC" || tradeData.symbol === "BTC" || tradeData.symbol === "BTC/USD" || tradeData.symbol === "BTCUSD" || tradeData.symbol?.includes("BTC");
+      const holdingIsBTC = holdingSymbol === "BTC" || selectedHolding.symbol === "BTC" || selectedHolding.symbol === "BTC/USD" || selectedHolding.symbol === "BTCUSD" || selectedHolding.symbol?.includes("BTC");
+      
+      if (isBTC && holdingIsBTC) {
+        // console.log(`💰 BTC received trade:`, tradeData);
         setCurrentPrice(tradeData.price);
         
         // Update chart in real-time with trade data
-        if (seriesRef.current && hasInitialDataRef.current) {
-          const currentTime = Math.floor(Date.now() / 1000);
-          const tradeTime = tradeData.timestamp;
-          
-          // Find the most recent bar (within the last 4 seconds)
-          const recentBarIndex = dataPointsRef.current.findIndex(
-            (dp) => Math.abs(dp.time - tradeTime) <= 4 || Math.abs(dp.time - currentTime) <= 4
-          );
-          
-          if (recentBarIndex >= 0) {
-            // Update existing bar's close price and adjust high/low in real-time
-            const existing = dataPointsRef.current[recentBarIndex];
-            const newHigh = Math.max(existing.high, tradeData.price);
-            const newLow = Math.min(existing.low, tradeData.price);
-            
-            dataPointsRef.current[recentBarIndex] = {
-              ...existing,
-              close: tradeData.price,
-              high: newHigh,
-              low: newLow,
-              volume: (existing.volume || 0) + (tradeData.size || 0)
-            };
-            // Update based on chart type
-            if (chartType === "candlestick" || chartType === "bar") {
-              seriesRef.current.update(dataPointsRef.current[recentBarIndex] as any);
-            } else if (chartType === "histogram") {
-              const updated = dataPointsRef.current[recentBarIndex];
-              seriesRef.current.update({
-                time: updated.time,
-                value: updated.volume || 0,
-                color: updated.close >= updated.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'
-              } as any);
-            } else {
-              seriesRef.current.update({ 
-                time: dataPointsRef.current[recentBarIndex].time, 
-                value: dataPointsRef.current[recentBarIndex].close 
-              } as any);
+        if (seriesRef.current && hasInitialDataRef.current && dataPointsRef.current.length > 0) {
+          // Normalize trade timestamp to seconds (same format as bar data)
+          let tradeTime: number;
+          if (typeof tradeData.timestamp === 'number') {
+            tradeTime = tradeData.timestamp > 1e10 ? Math.floor(tradeData.timestamp / 1000) : tradeData.timestamp;
+          } else if (typeof tradeData.timestamp === 'string') {
+            tradeTime = parseInt(tradeData.timestamp, 10);
+            if (tradeTime > 1e10) {
+              tradeTime = Math.floor(tradeTime / 1000);
             }
-          } else if (dataPointsRef.current.length > 0) {
-            // No matching bar, update the last bar with new price
-            const lastBar = dataPointsRef.current[dataPointsRef.current.length - 1];
+          } else {
+            tradeTime = Math.floor(Date.now() / 1000);
+          }
+          
+          // Ensure tradeTime is a valid number
+          if (isNaN(tradeTime) || !isFinite(tradeTime)) {
+            tradeTime = Math.floor(Date.now() / 1000);
+          }
+          
+          // Only update the most recent bar (last one in the array)
+          // This prevents "Cannot update oldest data" errors
+          const lastBarIndex = dataPointsRef.current.length - 1;
+          const lastBar = dataPointsRef.current[lastBarIndex];
+          
+          // Only update if the trade time is close to or newer than the last bar time
+          // This ensures we're not trying to update old data
+          if (tradeTime >= lastBar.time - 60) { // Allow updates within 60 seconds of last bar
             const newHigh = Math.max(lastBar.high, tradeData.price);
             const newLow = Math.min(lastBar.low, tradeData.price);
             
-            dataPointsRef.current[dataPointsRef.current.length - 1] = {
+            const updatedBar = {
               ...lastBar,
               close: tradeData.price,
               high: newHigh,
               low: newLow,
               volume: (lastBar.volume || 0) + (tradeData.size || 0)
             };
-            // Update based on chart type
-            if (chartType === "candlestick" || chartType === "bar") {
-              seriesRef.current.update(dataPointsRef.current[dataPointsRef.current.length - 1] as any);
-            } else if (chartType === "histogram") {
-              const updated = dataPointsRef.current[dataPointsRef.current.length - 1];
-              seriesRef.current.update({
-                time: updated.time,
-                value: updated.volume || 0,
-                color: updated.close >= updated.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'
-              } as any);
-            } else {
-              seriesRef.current.update({ 
-                time: dataPointsRef.current[dataPointsRef.current.length - 1].time, 
-                value: dataPointsRef.current[dataPointsRef.current.length - 1].close 
-              } as any);
+            
+            dataPointsRef.current[lastBarIndex] = updatedBar;
+            
+            try {
+              // Update based on chart type
+              if (chartType === "candlestick" || chartType === "bar") {
+                seriesRef.current.update(updatedBar as any);
+              } else if (chartType === "histogram") {
+                seriesRef.current.update({
+                  time: updatedBar.time,
+                  value: updatedBar.volume || 0,
+                  color: updatedBar.close >= updatedBar.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+                } as any);
+              } else {
+                seriesRef.current.update({ 
+                  time: updatedBar.time, 
+                  value: updatedBar.close 
+                } as any);
+              }
+            } catch (error) {
+              // Silently ignore update errors - they're usually "Cannot update oldest data" 
+              // which happens when trying to update data that's too old
+              console.warn('Chart update skipped:', error);
             }
           }
         }
@@ -444,9 +451,9 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     }
   };
 
-  // WebSocket connection for live prices - automatically subscribes/unsubscribes when selectedHolding changes
+  // WebSocket connection for live prices - BITCOIN ONLY to avoid port issues
   useAlpacaWebSocket({
-    symbols: selectedHolding ? [selectedHolding.symbol] : [],
+    symbols: ["BTC"], // Always subscribe to Bitcoin only
     dataType: "crypto",
     onMessage: handleMessage,
     autoConnect: true,
@@ -470,6 +477,11 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     dataPointsRef.current = [];
     hasInitialDataRef.current = false;
     setCurrentPrice(null);
+
+    console.log(`📊 Initializing chart for ${selectedHolding.symbol}, container size:`, {
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight
+    });
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -504,6 +516,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     initialSeries.setData([]);
 
     seriesRef.current = initialSeries;
+    // console.log(`✅ Chart initialized, series ready:`, !!seriesRef.current);
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -638,6 +651,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     }
 
     seriesRef.current = newSeries;
+    // console.log(`✅ Chart type updated to ${chartType}, series ready:`, !!seriesRef.current);
     
     // Only fit content if we have data
     if (currentData.length > 0) {
@@ -837,20 +851,20 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
           <div ref={chartContainerRef} className="w-full mb-4" style={{ minHeight: 'min(40vh, 500px)', height: 'min(40vh, 500px)' }} />
           
           {/* Chart Controls - Single Line */}
-          <div className="flex flex-wrap items-center gap-2 mb-4" style={{ gap: 'clamp(0.5rem, 1vw, 0.75rem)' }}>
+          <div className="flex flex-wrap items-center gap-1 mb-4" style={{ gap: '0.25rem' }}>
             {/* Chart Type */}
-            <div className="flex items-center gap-1" style={{ gap: 'clamp(0.25rem, 0.5vw, 0.5rem)' }}>
-              <Text size="2" weight="medium" style={{ color: 'var(--slate-11)', fontSize: 'clamp(0.75rem, 1vw, 0.875rem)' }}>
+            <div className="flex items-center gap-1" style={{ gap: '0.125rem' }}>
+              <Text size="1" weight="medium" style={{ color: 'var(--slate-11)', fontSize: '0.7rem' }}>
                 Chart Type:
               </Text>
               {(["candlestick", "bar", "line", "area", "baseline", "histogram"] as ChartType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => setChartType(type)}
-                  className="rounded-md font-medium transition-colors"
+                  className="rounded-sm font-medium transition-colors"
                   style={{
-                    padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                    fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                    padding: '0.125rem 0.375rem',
+                    fontSize: '0.7rem',
                     backgroundColor: chartType === type ? "var(--blue-9)" : "var(--slate-7)",
                     color: chartType === type ? "white" : "var(--slate-11)",
                   }}
@@ -861,21 +875,21 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
             </div>
             
             {/* Separator */}
-            <div className="bg-slate-600" style={{ height: 'clamp(1rem, 1.5vw, 1.5rem)', width: '1px' }} />
+            <div className="bg-slate-600" style={{ height: '0.875rem', width: '1px' }} />
             
             {/* Time Frame */}
-            <div className="flex items-center gap-1" style={{ gap: 'clamp(0.25rem, 0.5vw, 0.5rem)' }}>
-              <Text size="2" weight="medium" style={{ color: 'var(--slate-11)', fontSize: 'clamp(0.75rem, 1vw, 0.875rem)' }}>
+            <div className="flex items-center gap-1" style={{ gap: '0.125rem' }}>
+              <Text size="1" weight="medium" style={{ color: 'var(--slate-11)', fontSize: '0.7rem' }}>
                 Time Frame:
               </Text>
               {(["1m", "5m", "10m", "15m", "30m", "1h", "4h", "1d"] as TimeFrame[]).map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTimeFrame(tf)}
-                  className="rounded-md font-medium transition-colors"
+                  className="rounded-sm font-medium transition-colors"
                   style={{
-                    padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                    fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                    padding: '0.125rem 0.375rem',
+                    fontSize: '0.7rem',
                     backgroundColor: timeFrame === tf ? "var(--green-9)" : "var(--slate-7)",
                     color: timeFrame === tf ? "white" : "var(--slate-11)",
                   }}
@@ -886,19 +900,19 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
             </div>
             
             {/* Separator */}
-            <div className="bg-slate-600" style={{ height: 'clamp(1rem, 1.5vw, 1.5rem)', width: '1px' }} />
+            <div className="bg-slate-600" style={{ height: '0.875rem', width: '1px' }} />
             
             {/* Zoom Controls */}
-            <div className="flex items-center gap-1" style={{ gap: 'clamp(0.25rem, 0.5vw, 0.5rem)' }}>
-              <Text size="2" weight="medium" style={{ color: 'var(--slate-11)', fontSize: 'clamp(0.75rem, 1vw, 0.875rem)' }}>
+            <div className="flex items-center gap-1" style={{ gap: '0.125rem' }}>
+              <Text size="1" weight="medium" style={{ color: 'var(--slate-11)', fontSize: '0.7rem' }}>
                 Zoom:
               </Text>
               <button
                 onClick={zoomOut}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -908,10 +922,10 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </button>
               <button
                 onClick={fitContent}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -921,10 +935,10 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </button>
               <button
                 onClick={zoomIn}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -932,13 +946,13 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               >
                 +
               </button>
-              <div className="bg-slate-600" style={{ height: 'clamp(1rem, 1.5vw, 1.5rem)', width: '1px', marginLeft: 'clamp(0.25rem, 0.5vw, 0.5rem)' }} />
+              <div className="bg-slate-600" style={{ height: '0.875rem', width: '1px', marginLeft: '0.125rem' }} />
               <button
                 onClick={() => showLastPeriod(3600)}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -948,10 +962,10 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </button>
               <button
                 onClick={() => showLastPeriod(14400)}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -961,10 +975,10 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </button>
               <button
                 onClick={() => showLastPeriod(86400)}
-                className="rounded-md font-medium transition-colors"
+                className="rounded-sm font-medium transition-colors"
                 style={{
-                  padding: 'clamp(0.375rem, 0.75vw, 0.5rem) clamp(0.75rem, 1.5vw, 1rem)',
-                  fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+                  padding: '0.125rem 0.375rem',
+                  fontSize: '0.7rem',
                   backgroundColor: "var(--slate-7)",
                   color: "var(--slate-11)",
                 }}
@@ -974,37 +988,36 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Panels Layout: Target (left) | Two Panels (center) */}
-          <div className="grid gap-4" style={{ 
-            gridTemplateColumns: 'minmax(300px, 1fr) minmax(500px, 2fr)',
-            gap: 'clamp(0.75rem, 1.5vw, 1rem)',
-            minHeight: 'min(30vh, 300px)'
-          }}>
-            {/* Left: Target Panel */}
-            <div className="flex flex-col" style={{ minHeight: 'min(30vh, 300px)' }}>
-              <TargetPanel issues={8} />
-            </div>
-            
-            {/* Center: Two Panels Side by Side */}
-            <div className="grid grid-cols-2 gap-0" style={{ borderLeft: '1px solid var(--slate-6)' }}>
-              <div className="flex flex-col border-r" style={{ borderColor: 'var(--slate-6)', minHeight: 'min(30vh, 300px)' }}>
-                <PolymarketPanel />
+        {/* Bottom Data Panels - Match main page layout */}
+        <div className="h-96 border-t border-r grid grid-cols-[256px_1fr_1fr] gap-0" style={{ borderColor: 'var(--slate-6)' }}>
+            {/* VTuber Profile Card - Match main page */}
+            <div
+              className="border-r cursor-pointer flex items-center justify-center"
+              style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', width: '256px', height: '256px' }}
+              onClick={() => setAgentExpanded(!agentExpanded)}
+            >
+              <div className="w-[200px] h-[200px] rounded-lg flex items-center justify-center text-6xl border-2 shadow-lg relative overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--red-9), var(--red-10))', borderColor: 'var(--red-7)' }}>
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, transparent, rgba(139, 92, 246, 0.2))' }}></div>
+                <span className="relative z-10">🎯</span>
+                <div className="absolute bottom-3 right-3 w-4 h-4 rounded-full border-2" style={{ background: 'var(--green-9)', borderColor: 'var(--slate-2)' }}></div>
               </div>
-              <div className="flex flex-col" style={{ minHeight: 'min(30vh, 300px)' }}>
-                {/* Social Sentiment Panel - Inline from main page */}
-                <div
-                  className="p-3 flex flex-col cursor-pointer h-full"
-                  style={{ background: 'var(--slate-2)' }}
-                  onClick={() => setSentimentExpanded(!sentimentExpanded)}
-                >
-                  <Flex justify="between" align="center" className="mb-2">
-                    <Flex align="center" gap="1">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--blue-9)' }}></div>
-                      <Text size="1" weight="bold" className="uppercase tracking-wider" style={{ color: 'var(--slate-12)' }}>
-                        POLYMARKET SOCIAL SENTIMENT
-                      </Text>
-                    </Flex>
+            </div>
+
+            {/* Polymarket Panel - Using Component */}
+            <PolymarketPanel />
+
+            {/* Social Sentiment Panel - Match main page */}
+            <div
+              className="p-3 flex flex-col cursor-pointer"
+              style={{ background: 'var(--slate-2)' }}
+              onClick={() => setSentimentExpanded(!sentimentExpanded)}
+            >
+              <Flex justify="between" align="center" className="mb-2">
+                <Text size="1" weight="bold" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
+                  Social Sentiment
+                </Text>
                     <DropdownMenu.Root
                       open={subredditDropdownOpen}
                       onOpenChange={(open) => {
@@ -1074,9 +1087,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                           </div>
                           <div>
                             <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Sentiment Score</Text>
-                            <Text size="4" weight="bold" className="font-mono" style={{ color: (sentimentStats.score ?? 0) >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>
-                              {(sentimentStats.score ?? 0) > 0 ? `+${sentimentStats.score}` : `${sentimentStats.score}`}
-                            </Text>
+                            <Text size="4" weight="bold" className="font-mono" style={{ color: (sentimentStats.score ?? 0) >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>{sentimentScoreLabel}</Text>
                           </div>
                           <div>
                             <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Post Volume (24h)</Text>
@@ -1129,10 +1140,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                       )}
                     </div>
                   )}
-                </div>
-              </div>
             </div>
-          </div>
         </div>
 
         {/* Agent Modal - Inline from main page */}
@@ -1224,9 +1232,9 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
             </>
           )}
         </AnimatePresence>
-      </div>
-    );
-  }
+        </div>
+      );
+    }
 
   return (
     <div className="h-full w-full overflow-y-auto" style={{ background: 'var(--slate-1)' }}>
