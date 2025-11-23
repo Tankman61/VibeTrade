@@ -50,7 +50,7 @@ export default function RiskMonitorTab() {
 
     const hypeBgColor = data.hype_level.level === "High" ? 'var(--purple-4)' :
                          data.hype_level.level === "Medium" ? 'var(--blue-4)' :
-                         'var(--slate-4)';
+                         'var(--slate-3)';
 
     return (
       <>

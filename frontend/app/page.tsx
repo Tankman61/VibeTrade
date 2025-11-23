@@ -191,7 +191,13 @@ export default function Home() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setCurrentTime(now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'UTC'
+      }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -251,8 +257,9 @@ export default function Home() {
               <Button
                 variant="soft"
                 onClick={() => {
-                  const event = new CustomEvent('returnToHoldings');
-                  window.dispatchEvent(event);
+                  setActiveHoldings(null);
+                  setActivePortfolio(null);
+                  setNavbarHolding(null);
                 }}
                 style={{ cursor: 'pointer', marginRight: '1rem' }}
               >
@@ -669,15 +676,15 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-8"
+              className="fixed inset-0 z-50 flex items-center justify-center p-8 overflow-y-auto"
               onClick={() => setSettingsOpen(false)}
             >
               <div
-                className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-lg shadow-2xl border"
+                className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-lg shadow-2xl border flex flex-col"
                 style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="h-full flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
                   <div className="p-4 border-b" style={{ borderColor: 'var(--slate-6)' }}>
                     <Flex justify="between" align="center">
                       <Text size="5" weight="bold" style={{ color: 'var(--slate-12)' }}>
@@ -691,33 +698,31 @@ export default function Home() {
                       </button>
                     </Flex>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+                  <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin min-h-0">
                     <div>
-                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                      <Text size="3" weight="bold" className="mb-5 block" style={{ color: 'var(--slate-12)' }}>
                         AI Agent Configuration
                       </Text>
-                      <div className="space-y-4">
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Flex justify="between" align="center" className="mb-2">
-                            <div>
-                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Enable Voice Alerts</Text>
-                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Agent will speak when anomalies are detected</Text>
-                            </div>
-                            <input type="checkbox" defaultChecked className="w-5 h-5" />
-                          </Flex>
-                        </div>
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Flex justify="between" align="center" className="mb-2">
-                            <div>
-                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Auto-Interrupt Trading</Text>
-                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Block trades when risk level is critical</Text>
-                            </div>
-                            <input type="checkbox" className="w-5 h-5" />
-                          </Flex>
-                        </div>
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+                      <div className="space-y-5">
+                        <Flex justify="between" align="center" className="py-3">
+                          <div>
+                            <Text size="2" weight="medium" className="block mb-1" style={{ color: 'var(--slate-12)' }}>Enable Voice Alerts</Text>
+                            <Text size="1" className="block" style={{ color: 'var(--slate-11)' }}>Agent will speak when anomalies are detected</Text>
+                          </div>
+                          <input type="checkbox" defaultChecked className="w-5 h-5" style={{ accentColor: 'var(--blue-9)' }} />
+                        </Flex>
+                        <div className="h-px" style={{ background: 'var(--slate-6)' }} />
+                        <Flex justify="between" align="center" className="py-3">
+                          <div>
+                            <Text size="2" weight="medium" className="block mb-1" style={{ color: 'var(--slate-12)' }}>Auto-Interrupt Trading</Text>
+                            <Text size="1" className="block" style={{ color: 'var(--slate-11)' }}>Block trades when risk level is critical</Text>
+                          </div>
+                          <input type="checkbox" className="w-5 h-5" style={{ accentColor: 'var(--blue-9)' }} />
+                        </Flex>
+                        <div className="h-px" style={{ background: 'var(--slate-6)' }} />
+                        <div className="py-3">
                           <Text size="2" weight="medium" className="mb-2 block" style={{ color: 'var(--slate-12)' }}>Risk Threshold</Text>
-                          <Text size="1" className="mb-3 block" style={{ color: 'var(--slate-11)' }}>Alert when risk level exceeds</Text>
+                          <Text size="1" className="mb-4 block" style={{ color: 'var(--slate-11)' }}>Alert when risk level exceeds</Text>
                           <input type="range" min="0" max="100" defaultValue="70" className="w-full" style={{ accentColor: 'var(--red-9)' }} />
                           <Flex justify="between" className="mt-2">
                             <Text size="1" style={{ color: 'var(--slate-11)' }}>Low</Text>
@@ -727,53 +732,49 @@ export default function Home() {
                       </div>
                     </div>
                     <div>
-                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                      <Text size="3" weight="bold" className="mb-5 block" style={{ color: 'var(--slate-12)' }}>
                         Trading Preferences
                       </Text>
-                      <div className="space-y-4">
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Flex justify="between" align="center" className="mb-2">
-                            <div>
-                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Confirm Before Execute</Text>
-                              <Text size="1" style={{ color: 'var(--slate-11)' }}>Require confirmation for all trades</Text>
-                            </div>
-                            <input type="checkbox" defaultChecked className="w-5 h-5" />
-                          </Flex>
-                        </div>
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Text size="2" weight="medium" className="mb-2 block" style={{ color: 'var(--slate-12)' }}>Default Position Size</Text>
+                      <div className="space-y-5">
+                        <Flex justify="between" align="center" className="py-3">
+                          <div>
+                            <Text size="2" weight="medium" className="block mb-1" style={{ color: 'var(--slate-12)' }}>Confirm Before Execute</Text>
+                            <Text size="1" className="block" style={{ color: 'var(--slate-11)' }}>Require confirmation for all trades</Text>
+                          </div>
+                          <input type="checkbox" defaultChecked className="w-5 h-5" style={{ accentColor: 'var(--blue-9)' }} />
+                        </Flex>
+                        <div className="h-px" style={{ background: 'var(--slate-6)' }} />
+                        <div className="py-3">
+                          <Text size="2" weight="medium" className="mb-3 block" style={{ color: 'var(--slate-12)' }}>Default Position Size</Text>
                           <input
                             type="text"
                             defaultValue="0.5"
                             className="w-full px-3 py-2 rounded border font-mono"
-                            style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-7)', color: 'var(--slate-12)' }}
+                            style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)', color: 'var(--slate-12)' }}
                           />
                         </div>
                       </div>
                     </div>
                     <div>
-                      <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+                      <Text size="3" weight="bold" className="mb-5 block" style={{ color: 'var(--slate-12)' }}>
                         Data Sources
                       </Text>
-                      <div className="space-y-4">
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Flex justify="between" align="center">
-                            <div>
-                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Polymarket Integration</Text>
-                              <Text size="1" style={{ color: 'var(--green-11)' }}>Connected</Text>
-                            </div>
-                            <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
-                          </Flex>
-                        </div>
-                        <div className="p-4 rounded border" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                          <Flex justify="between" align="center">
-                            <div>
-                              <Text size="2" weight="medium" style={{ color: 'var(--slate-12)' }}>Reddit Sentiment</Text>
-                              <Text size="1" style={{ color: 'var(--green-11)' }}>Connected</Text>
-                            </div>
-                            <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
-                          </Flex>
-                        </div>
+                      <div className="space-y-5">
+                        <Flex justify="between" align="center" className="py-3">
+                          <div>
+                            <Text size="2" weight="medium" className="block mb-1" style={{ color: 'var(--slate-12)' }}>Polymarket Integration</Text>
+                            <Text size="1" className="block" style={{ color: 'var(--green-11)' }}>Connected</Text>
+                          </div>
+                          <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
+                        </Flex>
+                        <div className="h-px" style={{ background: 'var(--slate-6)' }} />
+                        <Flex justify="between" align="center" className="py-3">
+                          <div>
+                            <Text size="2" weight="medium" className="block mb-1" style={{ color: 'var(--slate-12)' }}>Reddit Sentiment</Text>
+                            <Text size="1" className="block" style={{ color: 'var(--green-11)' }}>Connected</Text>
+                          </div>
+                          <Badge style={{ background: 'var(--green-4)', color: 'var(--green-11)' }}>Active</Badge>
+                        </Flex>
                       </div>
                     </div>
                   </div>

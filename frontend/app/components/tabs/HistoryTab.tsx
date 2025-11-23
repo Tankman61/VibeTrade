@@ -88,7 +88,7 @@ export default function HistoryTab() {
                 key={trade.id}
                 className="p-2.5 rounded border"
                 style={{
-                  background: 'var(--slate-3)',
+                  background: 'var(--slate-4)',
                   borderColor: 'var(--slate-6)'
                 }}
               >

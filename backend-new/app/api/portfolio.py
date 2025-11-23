@@ -186,7 +186,7 @@ async def get_history():
     # Get all orders (including new, filled, and closed)
     all_orders = await trading_service.get_orders(status="all", limit=100)
     logger.info(f"📋 Fetched {len(all_orders)} orders from Alpaca for history")
-    
+
     history = []
     seen_ids = set()
 
@@ -195,13 +195,13 @@ async def get_history():
         order_id = order.get("id")
         if order_id in seen_ids:
             continue
-            
+
         filled_at = order.get("filled_at")
         filled_qty = order.get("filled_qty")
         status = order.get("status", "").lower()
         order_type = order.get("order_type", "").lower()
         qty = float(filled_qty or order.get("qty") or 0)
-        
+
         # Include orders that:
         # 1. Are filled (have filled_at or filled_qty)
         # 2. Have status "filled", "partially_filled", or "closed"
@@ -211,26 +211,100 @@ async def get_history():
         is_filled_status = status in ["filled", "partially_filled", "closed"]
         is_market_order = "market" in order_type
         has_quantity = qty > 0
-        
+
         if (is_filled or is_filled_status or (is_market_order and has_quantity)) and has_quantity:
             seen_ids.add(order_id)
-            
+
             # Use filled_avg_price if available, otherwise use limit_price or stop_price
-            price = order.get("filled_avg_price") or order.get("limit_price") or order.get("stop_price") or 0
-            
+            entry_price = float(order.get("filled_avg_price") or order.get("limit_price") or order.get("stop_price") or 0)
+
+            # Get current price for P&L calculation
+            symbol = order["symbol"]
+            clean_symbol = symbol.replace("/", "")
+
+            # Try to get price from live cache first (cache uses no slash)
+            current_price = alpaca_service.get_price(clean_symbol)
+
+            # If not in cache, fetch latest price from Alpaca REST API
+            if not current_price:
+                try:
+                    from alpaca.data.historical import CryptoHistoricalDataClient
+                    from alpaca.data.requests import CryptoBarsRequest
+                    from alpaca.data.timeframe import TimeFrame
+                    from datetime import datetime, timedelta
+                    import os
+
+                    crypto_client = CryptoHistoricalDataClient(
+                        api_key=os.getenv("ALPACA_API_KEY"),
+                        secret_key=os.getenv("ALPACA_SECRET_KEY")
+                    )
+
+                    # Use formatted symbol with slash for API (BTC/USD not BTCUSD)
+                    api_symbol = _format_symbol(symbol)
+
+                    # Get latest bar (last minute)
+                    request = CryptoBarsRequest(
+                        symbol_or_symbols=api_symbol,
+                        timeframe=TimeFrame.Minute,
+                        start=datetime.now() - timedelta(minutes=5),
+                        end=datetime.now()
+                    )
+
+                    bars = crypto_client.get_crypto_bars(request)
+
+                    # BarSet has a .data attribute which is a dict
+                    bars_dict = bars.data if hasattr(bars, 'data') else bars
+
+                    # Check both with and without slash
+                    symbol_key = None
+                    if bars_dict:
+                        if api_symbol in bars_dict:
+                            symbol_key = api_symbol
+                        elif clean_symbol in bars_dict:
+                            symbol_key = clean_symbol
+                        else:
+                            # Log what symbols ARE available
+                            logger.warning(f"Symbol {api_symbol} not in response. Available: {list(bars_dict.keys())}")
+
+                    if symbol_key and bars_dict:
+                        bar_list = list(bars_dict[symbol_key])
+                        if bar_list:
+                            current_price = float(bar_list[-1].close)
+                            logger.info(f"💰 Fetched latest price for {symbol_key} from API: ${current_price:.2f}")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch current price for {symbol}: {e}")
+
+            logger.info(f"💰 Price lookup for {symbol}: cache_live={alpaca_service.get_price(clean_symbol)}, current={current_price}, entry={entry_price}")
+
+            # If no live price available, use entry price (P&L will be 0)
+            if not current_price:
+                current_price = entry_price
+
+            # Calculate P&L based on side
+            # For BUY orders: if price went down, it's a loss (negative P&L)
+            # For SELL orders: if price went up since we sold, we missed gains (but P&L is locked in)
+            side = order["side"].upper()
+            if side == "BUY":
+                # P&L = (current_price - entry_price) * qty
+                pnl = (current_price - entry_price) * qty
+            else:  # SELL
+                # P&L = (entry_price - current_price) * qty (reversed for sells)
+                pnl = (entry_price - current_price) * qty
+
+            logger.info(f"📊 {side} {qty} {symbol}: entry=${entry_price:.2f}, current=${current_price:.2f}, P&L=${pnl:.2f}")
+
             history.append({
                 "id": order_id,
-                "ticker": _format_symbol(order["symbol"]),
-                "side": order["side"].upper(),
+                "ticker": _format_symbol(symbol),
+                "side": side,
                 "amount": qty,
-                "entry_price": float(price) if price else 0,
-                "exit_price": float(price) if price else 0,
-                "pnl": 0.0,
+                "entry_price": entry_price,
+                "exit_price": current_price,
+                "pnl": round(pnl, 2),
                 "filled_at": filled_at or order.get("created_at") or order.get("submitted_at"),
                 "time_ago": "",
                 "status": status
             })
-            logger.debug(f"  ✅ Added order {order_id}: {order.get('side')} {qty} {order.get('symbol')} @ {price} (status: {status})")
 
     logger.info(f"📊 Returning {len(history)} orders in history")
 
@@ -238,8 +312,8 @@ async def get_history():
     def get_sort_key(x):
         filled = x.get("filled_at") or ""
         return filled if filled else "0000-00-00T00:00:00"
-    
+
     history.sort(key=get_sort_key, reverse=True)
-    
+
     # Limit to 50 most recent
     return history[:50]

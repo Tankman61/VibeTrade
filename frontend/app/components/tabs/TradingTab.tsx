@@ -163,43 +163,23 @@ export default function TradingTab({
       
       console.log("✅ Main order placed:", orderResult);
       
-      // Wait a moment for the position to be established before placing stop/take profit orders
+      // TODO: TP/SL orders disabled for now - need proper implementation
+      // Issues:
+      // 1. STOP_LOSS not supported for crypto (need STOP_LIMIT)
+      // 2. LIMIT orders for TP execute immediately if price is favorable
+      // 3. Insufficient balance - orders use same funds as main order
+      // Solution: Implement backend monitoring service or use bracket orders
+
+      // Wait a moment for the position to be established
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // If stop loss or take profit are set, place stop orders
+
+      // Log TP/SL levels for debugging (not placing orders)
       if (!Number.isNaN(stopLossPrice) && stopLossPrice > 0) {
-        try {
-          // Place stop loss order (opposite side of main trade)
-          const stopOrder = await api.createOrder({
-            ticker: "BTC/USD",
-            side: tradeType === "long" ? "SELL" : "BUY", // Opposite side for stop loss
-            order_type: "STOP_LOSS",
-            amount: size,
-            limit_price: stopLossPrice,
-          });
-          console.log("✅ Stop loss order placed:", stopOrder);
-        } catch (error) {
-          console.warn("Failed to place stop loss order:", error);
-          toast.error("Main order placed but stop loss failed");
-        }
+        console.log(`📌 Stop Loss set at: $${stopLossPrice} (not placing order yet)`);
       }
-      
+
       if (!Number.isNaN(takeProfitPrice) && takeProfitPrice > 0) {
-        try {
-          // Place take profit order (limit order, opposite side)
-          // Use STOP_LIMIT instead of LIMIT to prevent immediate execution
-          const tpOrder = await api.createOrder({
-            ticker: "BTC/USD",
-            side: tradeType === "long" ? "SELL" : "BUY", // Opposite side for take profit
-            order_type: "LIMIT",
-            amount: size,
-            limit_price: takeProfitPrice,
-          });
-          console.log("✅ Take profit order placed:", tpOrder);
-        } catch (error) {
-          console.warn("Failed to place take profit order:", error);
-          toast.error("Main order placed but take profit failed");
-        }
+        console.log(`📌 Take Profit set at: $${takeProfitPrice} (not placing order yet)`);
       }
       
       toast.success(`✅ Order placed successfully! ${orderResult.id ? `Order ID: ${orderResult.id}` : ''}`);
@@ -258,7 +238,7 @@ export default function TradingTab({
       </div>
 
       {/* Trade Type */}
-      <div className="p-3 border-b shrink-0" style={{ borderColor: 'var(--slate-6)' }}>
+      <div className="px-3 pt-3 pb-4 shrink-0">
         <Text size="1" className="mb-3 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
           Type
         </Text>
@@ -289,9 +269,9 @@ export default function TradingTab({
       </div>
 
       {/* Scrollable Content */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100% - 16rem)' }}>
+      <div className="overflow-y-auto px-3 py-4 space-y-4" style={{ maxHeight: 'calc(100% - 16rem)' }}>
       {/* Position Size */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+      <div>
         <Flex justify="between" align="center" className="mb-2">
           <Text size="1" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
             Size
@@ -320,7 +300,7 @@ export default function TradingTab({
       </div>
 
       {/* Entry Price */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+      <div>
         <Text size="1" className="mb-2 uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
           Entry
         </Text>
@@ -342,7 +322,7 @@ export default function TradingTab({
       </div>
 
       {/* Stop Loss */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+      <div>
         <Flex justify="between" align="center" className="mb-2">
           <Text size="1" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
             Stop Loss
@@ -367,7 +347,7 @@ export default function TradingTab({
       </div>
 
       {/* Take Profit */}
-      <div className="p-3" style={{ borderColor: 'var(--slate-6)' }}>
+      <div>
         <Flex justify="between" align="center" className="mb-2">
           <Text size="1" className="uppercase tracking-wider" style={{ color: 'var(--slate-11)' }}>
             Take Profit

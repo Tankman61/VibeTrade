@@ -43,14 +43,51 @@ interface CryptoHoldingsProps {
 
 export default function CryptoHoldings({ initialSelectedHolding = null, onReturn }: CryptoHoldingsProps = {}) {
   const [holdings, setHoldings] = useState<Holding[]>([
-    { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "2.5", avgPrice: "42,350" },
-    { id: "2", symbol: "ETH", name: "Ethereum", quantity: "18.3", avgPrice: "2,245" },
-    { id: "3", symbol: "SOL", name: "Solana", quantity: "150", avgPrice: "98.50" },
-    { id: "4", symbol: "ADA", name: "Cardano", quantity: "5,000", avgPrice: "0.58" },
-    { id: "5", symbol: "AVAX", name: "Avalanche", quantity: "85", avgPrice: "35.20" },
-    { id: "6", symbol: "MATIC", name: "Polygon", quantity: "3,200", avgPrice: "0.92" },
+    { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "0", avgPrice: "0" },
+    { id: "2", symbol: "ETH", name: "Ethereum", quantity: "0", avgPrice: "0" },
+    { id: "3", symbol: "SOL", name: "Solana", quantity: "0", avgPrice: "0" },
+    { id: "4", symbol: "ADA", name: "Cardano", quantity: "0", avgPrice: "0" },
+    { id: "5", symbol: "AVAX", name: "Avalanche", quantity: "0", avgPrice: "0" },
+    { id: "6", symbol: "MATIC", name: "Polygon", quantity: "0", avgPrice: "0" },
   ]);
   const [selectedHolding, setSelectedHolding] = useState<Holding | null>(initialSelectedHolding);
+
+  // Fetch real positions from API and update holdings
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const positions = await api.getPositions();
+
+        // Update holdings with real quantities and prices from positions
+        setHoldings(prev => prev.map(holding => {
+          // Find matching position by symbol
+          const position = positions.find((p: any) => {
+            // Normalize both symbols for comparison
+            const posSymbol = p.symbol.replace("/USD", "").replace("USD", "").replace("/", "");
+            const holdingSymbol = holding.symbol.replace("/USD", "").replace("USD", "").replace("/", "");
+            return posSymbol === holdingSymbol;
+          });
+
+          if (position) {
+            console.log(`Matched position for ${holding.symbol}:`, position);
+            return {
+              ...holding,
+              quantity: position.qty.toString(),
+              avgPrice: position.avg_entry_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            };
+          }
+          return holding;
+        }));
+      } catch (error) {
+        console.error("Failed to fetch positions:", error);
+      }
+    };
+
+    fetchPositions();
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchPositions, 10000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Update selected holding when prop changes
   useEffect(() => {

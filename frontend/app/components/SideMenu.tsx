@@ -45,7 +45,8 @@ export default function SideMenu({ isOpen, onToggle, onPortfolioSelect, onHoldin
         className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-10 h-20 flex items-center justify-center transition-all"
         style={{
           background: 'var(--slate-3)',
-          border: 'none',
+          border: '1px solid var(--slate-6)',
+          borderLeft: 'none',
           borderRadius: '8px',
           borderTopLeftRadius: '0',
           borderBottomLeftRadius: '0',

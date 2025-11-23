@@ -7,6 +7,7 @@ import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-chart
 import { useAlpacaWebSocket } from "@/hooks/useAlpacaWebSocket";
 import type { AlpacaMessage } from "@/lib/websocket";
 import { transformBarToChartData } from "@/lib/alpacaDataTransform";
+import { api } from "@/app/lib/api";
 
 interface Holding {
   id: string;
@@ -203,7 +204,7 @@ function HoldingCard({ holding, currentPrice, isConnected, onClick }: HoldingCar
     <div
       className="border rounded-lg flex flex-col cursor-pointer hover:border-blue-500 transition-colors"
       style={{
-        background: 'var(--slate-2)',
+        background: 'var(--slate-3)',
         borderColor: 'var(--slate-6)',
         height: '280px',
         maxWidth: '380px',
@@ -263,37 +264,74 @@ interface CryptoHoldingsDashboardProps {
 
 export default function CryptoHoldingsDashboard({ onHoldingClick, resetFilter }: CryptoHoldingsDashboardProps = {}) {
   const [filter, setFilter] = useState<HoldingsFilter>("all");
-  
+
   // Reset filter to "all" when resetFilter prop is true
   useEffect(() => {
     if (resetFilter) {
       setFilter("all");
     }
   }, [resetFilter]);
-  
-  const [allHoldings] = useState<Holding[]>([
+
+  const [allHoldings, setAllHoldings] = useState<Holding[]>([
     // Crypto Holdings
-    { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "2.5", avgPrice: "42,350", type: "crypto" },
-    { id: "2", symbol: "ETH", name: "Ethereum", quantity: "18.3", avgPrice: "2,245", type: "crypto" },
-    { id: "3", symbol: "SOL", name: "Solana", quantity: "150", avgPrice: "98.50", type: "crypto" },
-    { id: "4", symbol: "ADA", name: "Cardano", quantity: "5,000", avgPrice: "0.58", type: "crypto" },
-    { id: "5", symbol: "AVAX", name: "Avalanche", quantity: "85", avgPrice: "35.20", type: "crypto" },
-    { id: "6", symbol: "MATIC", name: "Polygon", quantity: "3,200", avgPrice: "0.92", type: "crypto" },
+    { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "0", avgPrice: "0", type: "crypto" },
+    { id: "2", symbol: "ETH", name: "Ethereum", quantity: "0", avgPrice: "0", type: "crypto" },
+    { id: "3", symbol: "SOL", name: "Solana", quantity: "0", avgPrice: "0", type: "crypto" },
+    { id: "4", symbol: "ADA", name: "Cardano", quantity: "0", avgPrice: "0", type: "crypto" },
+    { id: "5", symbol: "AVAX", name: "Avalanche", quantity: "0", avgPrice: "0", type: "crypto" },
+    { id: "6", symbol: "MATIC", name: "Polygon", quantity: "0", avgPrice: "0", type: "crypto" },
     // Stock Holdings
-    { id: "7", symbol: "AAPL", name: "Apple Inc.", quantity: "150", avgPrice: "178.50", type: "stocks" },
-    { id: "8", symbol: "MSFT", name: "Microsoft Corporation", quantity: "85", avgPrice: "385.20", type: "stocks" },
-    { id: "9", symbol: "GOOGL", name: "Alphabet Inc.", quantity: "120", avgPrice: "142.30", type: "stocks" },
-    { id: "10", symbol: "AMZN", name: "Amazon.com Inc.", quantity: "95", avgPrice: "155.80", type: "stocks" },
-    { id: "11", symbol: "TSLA", name: "Tesla Inc.", quantity: "75", avgPrice: "242.50", type: "stocks" },
-    { id: "12", symbol: "NVDA", name: "NVIDIA Corporation", quantity: "110", avgPrice: "495.75", type: "stocks" },
+    { id: "7", symbol: "AAPL", name: "Apple Inc.", quantity: "0", avgPrice: "0", type: "stocks" },
+    { id: "8", symbol: "MSFT", name: "Microsoft Corporation", quantity: "0", avgPrice: "0", type: "stocks" },
+    { id: "9", symbol: "GOOGL", name: "Alphabet Inc.", quantity: "0", avgPrice: "0", type: "stocks" },
+    { id: "10", symbol: "AMZN", name: "Amazon.com Inc.", quantity: "0", avgPrice: "0", type: "stocks" },
+    { id: "11", symbol: "TSLA", name: "Tesla Inc.", quantity: "0", avgPrice: "0", type: "stocks" },
+    { id: "12", symbol: "NVDA", name: "NVIDIA Corporation", quantity: "0", avgPrice: "0", type: "stocks" },
     // Option Holdings
-    { id: "13", symbol: "AAPL", name: "Apple Call Option", quantity: "10", avgPrice: "5.50", type: "options" },
-    { id: "14", symbol: "TSLA", name: "Tesla Put Option", quantity: "5", avgPrice: "12.30", type: "options" },
+    { id: "13", symbol: "AAPL", name: "Apple Call Option", quantity: "0", avgPrice: "0", type: "options" },
+    { id: "14", symbol: "TSLA", name: "Tesla Put Option", quantity: "0", avgPrice: "0", type: "options" },
     // ETF Holdings
-    { id: "15", symbol: "SPY", name: "SPDR S&P 500 ETF", quantity: "50", avgPrice: "450.25", type: "etfs" },
-    { id: "16", symbol: "QQQ", name: "Invesco QQQ Trust", quantity: "30", avgPrice: "380.50", type: "etfs" },
-    { id: "17", symbol: "VTI", name: "Vanguard Total Stock Market ETF", quantity: "25", avgPrice: "235.75", type: "etfs" },
+    { id: "15", symbol: "SPY", name: "SPDR S&P 500 ETF", quantity: "0", avgPrice: "0", type: "etfs" },
+    { id: "16", symbol: "QQQ", name: "Invesco QQQ Trust", quantity: "0", avgPrice: "0", type: "etfs" },
+    { id: "17", symbol: "VTI", name: "Vanguard Total Stock Market ETF", quantity: "0", avgPrice: "0", type: "etfs" },
   ]);
+
+  // Fetch real positions from API and update holdings
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const positions = await api.getPositions();
+
+        // Update holdings with real quantities and prices from positions
+        setAllHoldings(prev => prev.map(holding => {
+          // Find matching position by symbol
+          const position = positions.find((p: any) => {
+            // Normalize both symbols for comparison
+            const posSymbol = p.symbol.replace("/USD", "").replace("USD", "").replace("/", "");
+            const holdingSymbol = holding.symbol.replace("/USD", "").replace("USD", "").replace("/", "");
+            return posSymbol === holdingSymbol;
+          });
+
+          if (position) {
+            console.log(`Matched position for ${holding.symbol}:`, position);
+            return {
+              ...holding,
+              quantity: position.qty.toString(),
+              avgPrice: position.avg_entry_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            };
+          }
+          return holding;
+        }));
+      } catch (error) {
+        console.error("Failed to fetch positions:", error);
+      }
+    };
+
+    fetchPositions();
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchPositions, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredHoldings = filter === "all" 
     ? allHoldings 
@@ -330,20 +368,20 @@ export default function CryptoHoldingsDashboard({ onHoldingClick, resetFilter }:
               <ChevronDownIcon style={{ width: '0.75rem', height: '0.75rem' }} />
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content style={{ minWidth: '9rem' }}>
-            <DropdownMenu.Item onSelect={() => setFilter("all")} style={{ fontSize: '0.75rem' }}>
+          <DropdownMenu.Content style={{ minWidth: '9rem', background: 'var(--slate-3)', border: '1px solid var(--slate-6)', color: 'var(--slate-12)' }}>
+            <DropdownMenu.Item onSelect={() => setFilter("all")} style={{ fontSize: '0.75rem', color: 'var(--slate-12)' }}>
               All Holdings
             </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => setFilter("crypto")} style={{ fontSize: '0.75rem' }}>
+            <DropdownMenu.Item onSelect={() => setFilter("crypto")} style={{ fontSize: '0.75rem', color: 'var(--slate-12)' }}>
               Crypto Holdings
             </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => setFilter("stocks")} style={{ fontSize: '0.75rem' }}>
+            <DropdownMenu.Item onSelect={() => setFilter("stocks")} style={{ fontSize: '0.75rem', color: 'var(--slate-12)' }}>
               Stock Holdings
             </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => setFilter("options")} style={{ fontSize: '0.75rem' }}>
+            <DropdownMenu.Item onSelect={() => setFilter("options")} style={{ fontSize: '0.75rem', color: 'var(--slate-12)' }}>
               Option Holdings
             </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => setFilter("etfs")} style={{ fontSize: '0.75rem' }}>
+            <DropdownMenu.Item onSelect={() => setFilter("etfs")} style={{ fontSize: '0.75rem', color: 'var(--slate-12)' }}>
               ETF Holdings
             </DropdownMenu.Item>
           </DropdownMenu.Content>
@@ -365,4 +403,3 @@ export default function CryptoHoldingsDashboard({ onHoldingClick, resetFilter }:
     </div>
   );
 }
-
