@@ -112,7 +112,9 @@ class ElevenLabsTTS:
         model_id: str = "eleven_turbo_v2",
         output_format: str = "mp3_44100_128",
         stability: float = 0.7,
-        similarity_boost: float = 0.8
+        similarity_boost: float = 0.8,
+        style: float = 0.0,  # 0.0 = fast/natural, 1.0 = slow/exaggerated
+        speaking_rate: float = 1.3  # 0.25 to 4.0, default 1.0
     ):
         """Connect to ElevenLabs TTS WebSocket"""
         try:
@@ -129,12 +131,20 @@ class ElevenLabsTTS:
                 "voice_settings": {
                     "stability": stability,
                     "similarity_boost": similarity_boost,
+                    "style": style,
                     "use_speaker_boost": True
+                },
+                "generation_config": {
+                    "chunk_length_schedule": [120, 160, 250, 290]  # Smaller chunks for lower latency
+                },
+                "pronunciation_dictionary_locators": [],
+                "model_config": {
+                    "speaking_rate": speaking_rate
                 }
             }
             await self.websocket.send(json.dumps(init_message))
 
-            logger.info(f"✅ Connected to ElevenLabs TTS (voice={self.voice_id}, model={model_id}, format={output_format})")
+            logger.info(f"✅ Connected to ElevenLabs TTS (voice={self.voice_id}, model={model_id}, format={output_format}, rate={speaking_rate})")
             return True
 
         except Exception as e:

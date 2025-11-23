@@ -42,7 +42,9 @@ class VoiceSession:
                 model_id="eleven_turbo_v2_5",
                 output_format="mp3_44100_192",
                 stability=0.7,  # Higher stability for cleaner audio
-                similarity_boost=0.8
+                similarity_boost=0.8,
+                style=0.0,  # Fast/natural style
+                speaking_rate=1.3  # 30% faster than default
             )
 
             logger.info(f"✅ Voice session started: {self.thread_id}")
@@ -215,7 +217,9 @@ class VoiceSession:
                 model_id="eleven_turbo_v2_5",
                 output_format="mp3_44100_192",
                 stability=0.7,  # Higher stability for cleaner audio
-                similarity_boost=0.8
+                similarity_boost=0.8,
+                style=0.0,  # Fast/natural style
+                speaking_rate=1.3  # 30% faster than default
             )
 
             # Send text to TTS
