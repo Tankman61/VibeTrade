@@ -48,6 +48,19 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
   // Initialize lip sync hook
   useWawa({ vrm: vrmRef.current, audioElem: audioRef.current } as any);
 
+  // FORCE MIXER UPDATE EVERY FRAME
+  useEffect(() => {
+    const updateMixer = () => {
+      if (mixerRef.current) {
+        // Force mixer update every frame
+        mixerRef.current.update(0.016); // 60fps
+      }
+      requestAnimationFrame(updateMixer);
+    };
+
+    updateMixer();
+  }, []);
+
   // Create a basic breathing animation as ultimate fallback - ALWAYS WORKS
   const createBreathingAnimation = useCallback(() => {
     if (!mixerRef.current) {
@@ -89,55 +102,71 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
     }
   }, []);
 
-  // CONTINUOUS ANIMATION MONITORING - FRAME-BY-FRAME
+  // FORCE ANIMATION ALWAYS - EXTREME MODE
+  const breathingActionRef = useRef<THREE.AnimationAction | null>(null);
+
+  // Pre-create breathing animation when component mounts
+  useEffect(() => {
+    if (mixerRef.current && !breathingActionRef.current) {
+      const breathingAction = createBreathingAnimation();
+      if (breathingAction) {
+        breathingActionRef.current = breathingAction;
+        console.log('💨 Breathing animation pre-created and cached');
+      }
+    }
+  }, [createBreathingAnimation]);
+
+  // FORCE ANIMATION PLAYBACK - MONITOR MIXER DIRECTLY
   useEffect(() => {
     let frameCount = 0;
 
-    const checkAnimationEveryFrame = () => {
+    const forceAnimationPlayback = () => {
       frameCount++;
 
       if (!vrmRef.current || !mixerRef.current) return;
 
-      // Check every frame if we have dashboard view
       if (viewMode === 'dashboard') {
-        const hasActiveAnimation = currentActionRef.current && currentActionRef.current.isRunning();
+        // Check mixer directly - has any active actions?
+        const hasAnyAnimation = mixerRef.current._actions && mixerRef.current._actions.length > 0;
 
-        // If no animation is running, FIX IT IMMEDIATELY
-        if (!hasActiveAnimation) {
-          // Only log every 60 frames (once per second) to avoid spam
+        // FORCE ANIMATION IF NOTHING IS PLAYING
+        if (!hasAnyAnimation) {
           if (frameCount % 60 === 0) {
-            console.log('🚨 FRAME-BY-FRAME: T-POSE DETECTED! Immediate fix...');
+            console.log('🚨 FORCE MODE: No animation detected, forcing playback...');
           }
 
-          // Stop everything first (no delay)
+          // Clear everything
           mixerRef.current.stopAllAction();
-          currentActionRef.current = null;
 
-          // Always go straight to breathing animation for guaranteed success
-          const breathingAction = createBreathingAnimation();
-          if (breathingAction) {
-            breathingAction.reset();
-            breathingAction.play();
-            currentActionRef.current = breathingAction;
+          // Use cached breathing animation if available
+          if (breathingActionRef.current) {
+            breathingActionRef.current.reset();
+            breathingActionRef.current.play();
+            currentActionRef.current = breathingActionRef.current;
           } else {
-            // If even breathing fails, try the animation chain as last resort
-            const animations = getIdleAnimations();
-            if (animations.length > 0) {
-              playAnimationChain(animations);
+            // Create new one if cache failed
+            const emergencyAction = createBreathingAnimation();
+            if (emergencyAction) {
+              emergencyAction.reset();
+              emergencyAction.play();
+              currentActionRef.current = emergencyAction;
+              breathingActionRef.current = emergencyAction; // Cache it
             }
           }
+
+          // Force mixer update
+          mixerRef.current.update(0.016); // One frame worth
         }
       }
     };
 
-    // Use requestAnimationFrame for continuous monitoring
+    // Run on every frame - MAXIMUM AGGRESSION
     let animationId: number;
     const animate = () => {
-      checkAnimationEveryFrame();
+      forceAnimationPlayback();
       animationId = requestAnimationFrame(animate);
     };
 
-    // Start the continuous monitoring
     animate();
 
     return () => {
@@ -487,11 +516,14 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
             newAction.setEffectiveTimeScale(1.0);
             newAction.setEffectiveWeight(1.0);
 
-            // Start playing - order matters: set weight before play
+            // FORCE PLAYBACK - multiple attempts
             newAction.play();
+            newAction.setEffectiveWeight(1.0);
 
-            // Force mixer update to ensure action is activated
+            // Force mixer update multiple times to ensure action is activated
             mixer.update(0);
+            mixer.update(0.016);
+            mixer.update(0.016);
 
             // Update current action reference immediately
             currentActionRef.current = newAction;
