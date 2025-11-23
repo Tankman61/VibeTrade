@@ -41,7 +41,7 @@ class DataIngestWorker:
         self.openai = get_openai_client()
         self.db = get_supabase()
         
-        self.interval_seconds = 10
+        self.interval_seconds = 600  # ~10 minutes
         self.is_running = False
         
         logger.info("✅ Data Ingest Worker initialized")
@@ -49,7 +49,7 @@ class DataIngestWorker:
     async def start(self):
         """Start the worker loop"""
         self.is_running = True
-        logger.info("🚀 Data Ingest Worker started (interval: 10s)")
+        logger.info("🚀 Data Ingest Worker started (interval: 600s)")
         
         while self.is_running:
             try:
@@ -250,7 +250,7 @@ class DataIngestWorker:
         # For MVP, skipping watchlist updates since Alpaca requires separate subscription
         # watchlist_tickers = ["ETH-USD", "SOL-USD", "AVAX-USD", "MATIC-USD"]
         
-        logger.info(f"✅ Ingest cycle complete. Next cycle in {self.interval_seconds}s")
+            logger.info(f"✅ Ingest cycle complete. Next cycle in {self.interval_seconds}s")
 
 
 async def run_ingest_worker():

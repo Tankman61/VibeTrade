@@ -79,6 +79,35 @@ export default function Home() {
   ];
   const [selectedCharacter, setSelectedCharacter] = useState(characters[0]);
 
+  // Debug keybindings for demo: "-" crash, "=" moonshot, "\\" clear override
+  useEffect(() => {
+    const triggerScenario = async (scenario: "crash" | "moon") => {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/debug/scenario/${scenario}`, { method: "POST" });
+      } catch (err) {
+        console.error("Failed to trigger debug scenario:", err);
+      }
+    };
+
+    const handleKey = (e: KeyboardEvent) => {
+      // Only trigger when not typing in inputs/textareas
+      const target = e.target as HTMLElement | null;
+      const isFormField = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (isFormField) return;
+
+      if (e.key === "-") {
+        triggerScenario("crash");
+      } else if (e.key === "=") {
+        triggerScenario("moon");
+      } else if (e.key === "\\") {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/debug/scenario/clear`, { method: "POST" }).catch(console.error);
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   // API Data States
   const [redditPosts, setRedditPosts] = useState<RedditPost[]>([]);
   const [sentimentStats, setSentimentStats] = useState<SentimentStats | null>(null);

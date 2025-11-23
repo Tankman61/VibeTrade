@@ -14,6 +14,7 @@ from alpaca.trading.requests import (
     StopOrderRequest,
     StopLimitOrderRequest,
     GetOrdersRequest,
+    ClosePositionRequest,
 )
 from alpaca.trading.enums import OrderSide, TimeInForce, OrderType, QueryOrderStatus
 from alpaca.data.models import Bar, Trade
@@ -179,10 +180,15 @@ class AlpacaTradingService:
             return False
         
         try:
-            if qty:
-                self.client.close_position(symbol, close_options={"qty": str(qty)})
+            # Normalize symbol for Alpaca (e.g., BTC/USD -> BTCUSD)
+            alpaca_symbol = symbol.replace("/", "").replace("-", "").upper()
+
+            if qty is not None:
+                # Use Alpaca request model so the client can serialize correctly
+                close_req = ClosePositionRequest(qty=str(qty))
+                self.client.close_position(alpaca_symbol, close_options=close_req)
             else:
-                self.client.close_position(symbol)
+                self.client.close_position(alpaca_symbol)
             logger.info(f"Closed position {symbol} (qty={qty or 'all'})")
             return True
         except Exception as e:

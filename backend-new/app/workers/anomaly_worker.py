@@ -10,8 +10,10 @@ Runs every 5 seconds checking:
 """
 import asyncio
 import logging
+import os
 from typing import Dict, Any, Optional, List, Callable, Awaitable
 from datetime import datetime
+import httpx
 
 from app.services.supabase import get_supabase
 from app.services.anomaly_monitor import get_anomaly_monitor
@@ -232,65 +234,49 @@ class AnomalyWorker:
             return None
     
     async def _ping_agent_with_anomalies(self, anomalies: List[Dict[str, Any]]):
-        """
-        Ping the AI agent when anomalies are detected.
-        
-        Methods:
-        1. Send WebSocket INTERRUPT message
-        2. Inject SystemMessage into agent conversation
-        """
+        """Send anomaly summary to the agent chat API"""
         if not anomalies:
             return
-        
-        # Filter for high/medium severity only
+
         significant_anomalies = [a for a in anomalies if a.get("severity") in ["high", "medium"]]
-        
         if not significant_anomalies:
             return
-        
+
         logger.warning(f"🚨 {len(significant_anomalies)} significant anomaly(ies) detected, pinging agent")
-        
-        # Generate alert message with context
+
         anomaly_summaries = []
         for anomaly in significant_anomalies:
             summary = f"- {anomaly['metric']}: {anomaly.get('message', 'Anomaly detected')} (severity: {anomaly['severity']})"
             if 'context' in anomaly:
                 summary += f" | {anomaly['context']}"
             anomaly_summaries.append(summary)
-        
+
         alert_message = f"ANOMALY DETECTED:\n" + "\n".join(anomaly_summaries)
-        
-        # Method 1: Send WebSocket ANOMALY_ALERT (primary method, similar to monitor worker INTERRUPT)
-        # Frontend will handle injecting the system message into agent conversation
-        if self.ws_manager:
-            try:
-                # Check if ws_manager has broadcast method (for agent WebSocket)
-                if hasattr(self.ws_manager, 'broadcast'):
-                    await self.ws_manager.broadcast({
-                        "type": "ANOMALY_ALERT",
-                        "message": alert_message,
-                        "anomalies": significant_anomalies,
-                        "count": len(significant_anomalies),
-                        "timestamp": datetime.utcnow().isoformat()
-                    })
-                    logger.info("✅ ANOMALY_ALERT sent via WebSocket broadcast")
-                else:
-                    # If it's a different type of manager, try to send directly
-                    logger.warning(f"WebSocket manager doesn't have broadcast method: {type(self.ws_manager)}")
-            except Exception as e:
-                logger.error(f"Failed to send WebSocket ANOMALY_ALERT: {e}", exc_info=True)
-        else:
-            logger.debug("No WebSocket manager available, anomaly alert not broadcast")
-        
-        # Method 2: Direct agent message injection (optional, for future enhancement)
-        # Currently, WebSocket is the primary method and frontend handles agent injection
-        if self.agent_session_manager:
-            try:
-                system_message = f"SYSTEM_ALERT: {alert_message}"
-                await self._inject_agent_message(system_message)
-                logger.info("✅ Anomaly alert also injected directly into agent conversation")
-            except Exception as e:
-                logger.debug(f"Direct agent injection not available: {e}")
+
+        btc_price = finnhub_service.get_price("BTC") or finnhub_service.get_price("BTCUSD") or 0
+        risk_score = next((a.get("value") for a in significant_anomalies if a.get("metric") == "risk_score"), 0)
+        hype_score = next((a.get("value") for a in significant_anomalies if a.get("metric") == "hype_score"), 0)
+
+        payload = {
+            "message": alert_message,
+            "thread_id": "anomaly-alert",
+            "alert_context": {
+                "alert_type": "ANOMALY_ALERT",
+                "risk_score": risk_score or 0,
+                "hype_score": hype_score or 0,
+                "btc_price": btc_price or 0,
+                "price_change_24h": 0,
+            }
+        }
+
+        api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(f"{api_base}/api/agent/chat", json=payload, timeout=10.0)
+                resp.raise_for_status()
+            logger.info("✅ Anomaly alert sent to agent API")
+        except Exception as e:
+            logger.error(f"Failed to send anomaly alert to agent: {e}", exc_info=True)
     
     async def _inject_agent_message(self, message: str):
         """
@@ -327,4 +313,3 @@ async def run_anomaly_worker(websocket_manager=None, agent_session_manager=None)
 if __name__ == "__main__":
     # For standalone testing
     asyncio.run(run_anomaly_worker())
-
