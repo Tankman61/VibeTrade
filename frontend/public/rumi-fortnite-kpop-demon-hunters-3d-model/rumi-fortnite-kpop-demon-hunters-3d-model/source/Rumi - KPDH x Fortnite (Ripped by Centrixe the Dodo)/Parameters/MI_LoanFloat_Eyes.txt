@@ -1,0 +1,173 @@
+{
+  "Textures": {
+    "DefaultDiffuse": "/Engine/EngineMaterials/DefaultDiffuse.DefaultDiffuse",
+    "T_Eye_Sphere_N": "/Game/Characters/Shared/FNEye/Textures/T_Eye_Sphere_N.T_Eye_Sphere_N",
+    "T_Eye_D": "/Game/Characters/Shared/FNEye/Textures/T_Eye_D.T_Eye_D",
+    "T_Eye_S_2022": "/Game/Characters/Shared/FNEye/Textures/T_Eye_S_2022.T_Eye_S_2022",
+    "T_EyeMidPlaneDisplacement": "/Game/Characters/Shared/FNEye/Textures/T_EyeMidPlaneDisplacement.T_EyeMidPlaneDisplacement",
+    "FlatNormalBlue": "/Game/Global/Textures/Default/Blanks/FlatNormalBlue.FlatNormalBlue",
+    "T_BlacksRGB": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "T_WhiteMask": "/Game/Global/Textures/Default/Blanks/T_WhiteMask.T_WhiteMask",
+    "PM_Normals": "/Game/Global/Textures/Default/Blanks/FlatNormalBlue.FlatNormalBlue",
+    "PM_Diffuse": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_D.T_LoanFloat_Head_D",
+    "PM_SpecularMasks": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_S.T_LoanFloat_Head_S",
+    "Eye Iris Normal": "/Game/Characters/Shared/FNEye/Textures/T_Eye_Sphere_N.T_Eye_Sphere_N",
+    "Diffuse": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_D.T_LoanFloat_Head_D",
+    "SRM": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_S.T_LoanFloat_Head_S",
+    "Normal": "/Game/Global/Textures/Default/Blanks/FlatNormalBlue.FlatNormalBlue",
+    "PM_Emissive": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "Emissive": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "EyelashMask": "/Game/Global/Textures/Default/Blanks/T_WhiteMask.T_WhiteMask"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 14,
+    "Colors": {
+      "Eye UV Highlight Pos": {
+        "R": 0.92,
+        "G": 0.12,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "F66100"
+      },
+      "Eye Right UV Position (UV0)": {
+        "R": 0.94,
+        "G": 0.122,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "F96200"
+      },
+      "Eye Left UV Position (UV0)": {
+        "R": 0.94,
+        "G": 0.35,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "F9A000"
+      },
+      "Eye Camera Light Vector": {
+        "R": -0.2,
+        "G": 0.075,
+        "B": -0.5,
+        "A": 0.0,
+        "Hex": "004D00"
+      },
+      "EmissiveUVs_RG_UpperLeftCorner_BA_LowerRightCorner": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "0000FF"
+      },
+      "EyeTintColor": {
+        "R": 0.53,
+        "G": 1.0,
+        "B": 0.47,
+        "A": 1.0,
+        "Hex": "C1FFB7"
+      },
+      "Eye UV Highlight Pos 2": {
+        "R": 0.878,
+        "G": 0.12,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "F16100"
+      },
+      "Eye UV Highlight Color Tint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "Eye UV Highlight 2 Color Tint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "EyelashColor": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "EyelashVertexColorMaskChannel": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "00FF00"
+      }
+    },
+    "Scalars": {
+      "FP_MaskRadius": 40.0,
+      "FP_MaskHardness": 0.2,
+      "FP_MeshOffset": -25.0,
+      "FP_MaskWidth": 120.0,
+      "FP_MaskHeight": 25.0,
+      "FP_Power": 4.0,
+      "FP_MaskPosZ": 150.0,
+      "FP_WPOStrength": 0.0,
+      "FP_FOVStrength": 0.0,
+      "FP_FOVInterpolation_BlendHeight": 120.0,
+      "FP_LerpFOV_BottomWidth": 35.0,
+      "FP_LerpFOV_TopWidth": 20.0,
+      "FP_LerpFOV_TopDepth": 90.0,
+      "FP_LerpFOV_BottomDepth": 90.0,
+      "Cosmetic Emissive EyeAdaptation Alpha": 1.0,
+      "Emissive Fres EX": 0.01,
+      "Invert Emissive Fresnel": 0.0,
+      "Eye Refraction Mix": 1.0,
+      "Eye Cornea IOR": 1.336,
+      "Eye Iris Normal Flatten": 0.35,
+      "Eye UV Highlight Hardness": 0.6,
+      "Eye UV Highlight Size": 0.005,
+      "Eye Cornea Mask Hardness": 0.2,
+      "Eye Cornea Radius (UV)": 0.075,
+      "Eye Refraction Mult": 0.02,
+      "Eye Metallic Mult": 0.7,
+      "Eye Roughness Min": 0.0,
+      "Eye Iris UV Radius": 0.3,
+      "Eye Iris Depth Scale": 2.0,
+      "Eye Texture AspectRatio": 2.0,
+      "emissive mult": 1.0,
+      "emissive mult_MobileMax": 1.0,
+      "CameraFacing_Inverted": 1.0,
+      "Fresnel_Power": 1.0,
+      "EyeTintMask_Radius": 0.4,
+      "Eye UV Highlight Strength": 1.0,
+      "Eye UV Highlight 2 Strength": 1.0,
+      "Eye UV Left Highlight Strength": 1.0,
+      "Eye UV Right Highlight Strength": 1.0,
+      "Eye UV Left Highlight 2 Strength": 1.0,
+      "Eye UV Right Highlight 2 Strength": 1.0,
+      "EyelashMetallic": 0.0,
+      "EyelashSpec": 0.5,
+      "EyelashRoughness": 0.6,
+      "EyelashMaskColumns": 1.0,
+      "EyelashMaskRows": 1.0,
+      "EyelashMaskIndex": 0.0,
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {},
+    "Properties": {
+      "bUsedWithSkeletalMesh": true,
+      "bUseMaterialAttributes": true,
+      "PixelDepthOffsetMode": "EPixelDepthOffsetMode::PDOM_Legacy",
+      "StateId": "5DF08CC8-49FF8B99-2657E2B9-03851C7F",
+      "bIncludedInBaseGame": true,
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_FromMaterialExpression",
+        "OpacityMaskClipValue": 0.3333
+      }
+    },
+    "HasTopDiffuse": true,
+    "HasTopNormals": true,
+    "HasTopSpecularMasks": true,
+    "HasTopEmissive": true,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

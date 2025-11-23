@@ -11,9 +11,11 @@ interface VRMViewerCompactProps {
   onSceneClick?: () => void;
   modelPath?: string;
   viewMode?: 'dashboard' | 'landing';
+  cameraOffset?: { x?: number; y?: number; z?: number };
+  isGltf?: boolean;
 }
 
-export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_girl.vrm", viewMode = 'dashboard' }: VRMViewerCompactProps = {}) {
+export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_girl.vrm", viewMode = 'dashboard', cameraOffset, isGltf = false }: VRMViewerCompactProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
@@ -118,6 +120,10 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       { name: "Nervously Look Around", path: "/animations/idle/Nervously Look Around.fbx", emoji: "👀" },
       { name: "Warrior Idle", path: "/animations/idle/Warrior Idle.fbx", emoji: "⚔️" },
     ],
+    regularIdleAdult: [
+      { name: "Idle", path: "/animations/regular idle adult/Idle.fbx", emoji: "🧍" },
+      { name: "Zombie Idle", path: "/animations/regular idle adult/Zombie Idle.fbx", emoji: "🧟" },
+    ],
     happy: [
       { name: "Joyful Jump", path: "/animations/excited/Joyful Jump.fbx", emoji: "🦘" },
       { name: "Standing Clap", path: "/animations/excited/Standing Clap.fbx", emoji: "👏" },
@@ -135,6 +141,26 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
     sad: [
       { name: "Sad Idle", path: "/animations/sad/Sad Idle.fbx", emoji: "😢" },
     ]
+  };
+
+  // Helper function to get appropriate idle animations based on model
+  const getIdleAnimations = () => {
+    // GLTF models don't support retargeted animations
+    if (isGltf) {
+      console.log('⚠️ Skipping animations for GLTF model');
+      return [];
+    }
+
+    const isHorseGirl = modelPath.includes('horse_girl');
+    if (isHorseGirl) {
+      // Horse girl uses original idle animation chain
+      console.log('🎬 Using original idle animations for Horse Girl');
+      return animationCategories.idle;
+    } else {
+      // All other VRM models use regular idle adult animations
+      console.log('🎬 Using regular idle adult animations for:', modelPath);
+      return animationCategories.regularIdleAdult;
+    }
   };
 
   // Callable animation state functions - exposed via ref
@@ -438,7 +464,7 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
     const fallbackAnimationStarter = () => {
       if (vrmRef.current && mixerRef.current && currentChainRef.current.length === 0) {
         console.log('🎬 Fallback: Starting idle animations as backup');
-        playAnimationChain(animationCategories.idle);
+        playAnimationChain(getIdleAnimations());
       }
     };
 
@@ -461,7 +487,13 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
           1000
         );
         // Camera at face level with the model
-        camera.position.set(0.0, 1, 0.4); // Face level height, closer to model
+        const baseCamY = 1;
+        const baseCamZ = 0.4;
+        camera.position.set(
+          cameraOffset?.x || 0.0,
+          baseCamY + (cameraOffset?.y || 0),
+          baseCamZ + (cameraOffset?.z || 0)
+        );
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -492,7 +524,13 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
           1000
         );
         // Adjust camera for larger canvas - pull back slightly and move up for better full-body framing
-        camera.position.set(0.0, 1, 1.3);
+        const baseCamY = 1;
+        const baseCamZ = 1.3;
+        camera.position.set(
+          cameraOffset?.x || 0.0,
+          baseCamY + (cameraOffset?.y || 0),
+          baseCamZ + (cameraOffset?.z || 0)
+        );
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -529,38 +567,63 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
       try {
         const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader");
-        const { VRMLoaderPlugin, VRMUtils } = await import("@pixiv/three-vrm");
 
         const loader = new GLTFLoader();
-        loader.register((parser: any) => {
-          return new VRMLoaderPlugin(parser);
-        });
+
+        // Only register VRM plugin if this is a VRM file
+        if (!isGltf) {
+          const { VRMLoaderPlugin } = await import("@pixiv/three-vrm");
+          loader.register((parser: any) => {
+            return new VRMLoaderPlugin(parser);
+          });
+        }
 
         const url = modelPath; // Use the modelPath prop
-        console.log('🎭 Loading VRM model from:', url);
+        console.log(isGltf ? '🎭 Loading GLTF model from:' : '🎭 Loading VRM model from:', url);
         loader.load(
           url,
-          (gltf) => {
-            console.log('✅ VRM model loaded successfully from:', url);
-            const vrm = gltf.userData.vrm;
-            if (!vrm) {
-              console.error("VRM data not found in loaded model");
-              return;
+          async (gltf) => {
+            console.log('✅ Model loaded successfully from:', url);
+
+            let modelScene;
+            let vrmData = null;
+
+            if (isGltf) {
+              // Handle plain GLTF files (Obama, Rumi)
+              console.log('📦 Processing as GLTF model');
+              modelScene = gltf.scene;
+
+              // Create a fake VRM structure for compatibility
+              vrmData = {
+                scene: modelScene,
+                humanoid: null,
+                expressionManager: null,
+              };
+            } else {
+              // Handle VRM files
+              const { VRMUtils } = await import("@pixiv/three-vrm");
+              const vrmModel = gltf.userData.vrm;
+              if (!vrmModel) {
+                console.error("VRM data not found in loaded model");
+                return;
+              }
+
+              // Rotate model to face camera
+              VRMUtils.rotateVRM0(vrmModel);
+              vrmData = vrmModel;
+              modelScene = vrmModel.scene;
             }
 
-            // Rotate model to face camera
-            VRMUtils.rotateVRM0(vrm);
-
             // Center the model
-            vrm.scene.position.set(0, 0, 0);
-            scene.add(vrm.scene);
-            console.log('VRM scene added to scene, children count:', scene.children.length);
+            modelScene.position.set(0, 0, 0);
+            scene.add(modelScene);
+            console.log('Model scene added to scene, children count:', scene.children.length);
 
-            // Store VRM reference
-            vrmRef.current = vrm;
+            // Store VRM reference (or fake VRM for GLTF)
+            vrmRef.current = vrmData;
 
             // Create animation mixer
-            const mixer = new THREE.AnimationMixer(vrm.scene);
+            const mixer = new THREE.AnimationMixer(modelScene);
             mixerRef.current = mixer;
 
             // Auto-look at model position
@@ -576,14 +639,18 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
             // Load appropriate animation based on view mode
             if (viewMode === 'landing') {
-              // Load hip hop animation for landing page
-              loadLandingAnimation(vrm, mixer);
+              // Load hip hop animation for landing page (only for real VRM models)
+              if (!isGltf && vrmData.humanoid) {
+                loadLandingAnimation(vrmData, mixer);
+              } else {
+                console.log('⚠️ Skipping landing animation for GLTF model (no humanoid structure)');
+              }
             } else {
               // Start idle animation chain with multiple attempts to ensure it always works
               const startAnimations = () => {
                 if (vrmRef.current && mixerRef.current) {
                   console.log('🎬 Starting idle animations for dashboard view');
-                  playAnimationChain(animationCategories.idle);
+                  playAnimationChain(getIdleAnimations());
                   return true;
                 }
                 return false;
@@ -660,7 +727,8 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
 
         // Update VRM (physics for hair/clothes and bone updates)
         // This runs AFTER animation to ensure our rotations aren't overridden
-        if (vrmRef.current) {
+        // Only update if this is a real VRM model (not GLTF)
+        if (vrmRef.current && typeof vrmRef.current.update === 'function') {
           vrmRef.current.update(dt);
         }
 
@@ -762,7 +830,7 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       if (!mounted) return;
       if (vrmRef.current && mixerRef.current && !currentCategory && currentChainRef.current.length === 0) {
         console.log('🎬 Starting idle animation chain from vrm-loaded event');
-        playAnimationChain(animationCategories.idle);
+        playAnimationChain(getIdleAnimations());
       }
     };
 
@@ -773,7 +841,7 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       if (!mounted) return;
       if (vrmRef.current && mixerRef.current && !currentCategory && currentChainRef.current.length === 0) {
         console.log('🎬 Starting idle animation chain from initial check');
-        playAnimationChain(animationCategories.idle);
+        playAnimationChain(getIdleAnimations());
       }
     }, 1000);
 
@@ -793,7 +861,7 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       if (currentCategory === null && vrmRef.current && mixerRef.current) {
         // Default to idle cycling when category is null
         console.log('🔄 Default idle cycle');
-        playAnimationChain(animationCategories.idle);
+        playAnimationChain(getIdleAnimations());
       } else if (currentCategory && vrmRef.current && mixerRef.current) {
         const categoryAnimations = animationCategories[currentCategory as keyof typeof animationCategories];
         if (categoryAnimations) {

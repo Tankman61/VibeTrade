@@ -34,12 +34,26 @@ interface Holding {
   type?: "crypto" | "stocks" | "options" | "etfs";
 }
 
+interface Character {
+  id: string;
+  name: string;
+  image: string;
+  vrm: string;
+  voice: string;
+  cameraOffset?: { x?: number; y?: number; z?: number };
+  isGltf?: boolean;
+}
+
 interface CryptoHoldingsProps {
   initialSelectedHolding?: Holding | null;
   onReturn?: () => void;
+  characterSwapperOpen?: boolean;
+  setCharacterSwapperOpen?: (open: boolean | ((prev: boolean) => boolean)) => void;
+  selectedCharacter?: Character;
+  setSelectedCharacter?: (character: Character) => void;
 }
 
-export default function CryptoHoldings({ initialSelectedHolding = null, onReturn }: CryptoHoldingsProps = {}) {
+export default function CryptoHoldings({ initialSelectedHolding = null, onReturn, characterSwapperOpen = false, setCharacterSwapperOpen, selectedCharacter: parentSelectedCharacter, setSelectedCharacter: parentSetSelectedCharacter }: CryptoHoldingsProps = {}) {
   const [holdings, setHoldings] = useState<Holding[]>([
     { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "0", avgPrice: "0" },
     { id: "2", symbol: "ETH", name: "Ethereum", quantity: "0", avgPrice: "0" },
@@ -162,7 +176,6 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
 
   // Character states
-  const [characterSwapperOpen, setCharacterSwapperOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
   // Voice agent states
@@ -185,17 +198,36 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
 
   // Character data
   const characters = [
-    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm" },
-    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm" },
-    { id: "caring_mother", name: "Caring Mother", image: "/caring_mother_profile.png", vrm: "/caring_mother.vrm" },
-    { id: "character4", name: "Character 4", image: "/character4_profile.png", vrm: "/character4.vrm" },
-    { id: "character5", name: "Character 5", image: "/character5_profile.png", vrm: "/character5.vrm" },
+    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voice: "nova" },
+    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer", cameraOffset: { y: 0.6 } },
+    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy", cameraOffset: { y: 0.3 } },
+    { id: "obama", name: "Obama", image: "/obama_profile.png", vrm: "/obama/scene.gltf", voice: "onyx", isGltf: true, cameraOffset: { y: 0.6 } },
+    { id: "rumi", name: "Rumi", image: "/rumi_profile.png", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voice: "echo", isGltf: true, cameraOffset: { y: 0.3 } },
   ];
-  const [selectedCharacter, setSelectedCharacter] = useState(characters[0]);
+  const [localSelectedCharacter, setLocalSelectedCharacter] = useState(characters[0]);
 
-  // Debug: Log when character changes
+  // Use parent's selectedCharacter if provided, otherwise use local state
+  const selectedCharacter = parentSelectedCharacter || localSelectedCharacter;
+  const setSelectedCharacter = parentSetSelectedCharacter || setLocalSelectedCharacter;
+
+  // Debug: Log when character changes and reconnect voice agent with new voice
   useEffect(() => {
-    console.log('🎭 Current character updated to:', selectedCharacter.name, selectedCharacter.vrm);
+    console.log('🎭 Current character updated to:', selectedCharacter.name, selectedCharacter.vrm, 'voice:', selectedCharacter.voice);
+
+    // If voice agent is connected, reconnect with new character's voice
+    if (isVoiceConnected) {
+      console.log('🎙️ Reconnecting voice agent with new voice:', selectedCharacter.voice);
+      disconnectVoiceAgent();
+      setTimeout(() => {
+        connectVoiceAgent();
+        if (isRecording) {
+          setTimeout(() => {
+            startVoiceRecording();
+          }, 500);
+        }
+      }, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCharacter]);
 
   // Debug: Log when modal state changes
@@ -331,7 +363,8 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
         console.log("✅ Connected to voice WebSocket");
         ws.send(JSON.stringify({
           type: "start",
-          thread_id: threadIdRef.current
+          thread_id: threadIdRef.current,
+          voice: selectedCharacter.voice || "nova"
         }));
       };
 
@@ -1365,6 +1398,8 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                   key={`vrm-${selectedCharacter.id}`}
                   onSceneClick={() => setAgentExpanded(!agentExpanded)}
                   modelPath={selectedCharacter.vrm}
+                  cameraOffset={(selectedCharacter as any).cameraOffset}
+                  isGltf={(selectedCharacter as any).isGltf}
                 />
 
                 {/* Control Buttons */}
@@ -1883,10 +1918,14 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                               {character.id === 'horse_girl'
                                 ? 'A UWU Horse for a UWO Mascot'
                                 : character.id === 'twinkie'
-                                  ? 'The perfect snack'
-                                  : character.id === 'caring_mother'
-                                    ? 'Who\'s a good boy?'
-                                    : 'Trading companion with unique personality and insights.'
+                                  ? 'The perfect snack companion for your trading journey'
+                                  : character.id === 'chaewon'
+                                    ? 'K-pop idol turned trading genius'
+                                    : character.id === 'obama'
+                                      ? 'Yes we can! Your presidential trading advisor'
+                                      : character.id === 'rumi'
+                                        ? 'K-pop demon hunter with crypto instincts'
+                                        : 'Trading companion with unique personality and insights.'
                               }
                             </p>
                           </div>

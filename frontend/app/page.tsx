@@ -68,11 +68,11 @@ export default function Home() {
 
   // Character data
   const characters = [
-    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm" },
-    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm" },
-    { id: "caring_mother", name: "Caring Mother", image: "/caring_mother_profile.png", vrm: "/caring_mother.vrm" },
-    { id: "character4", name: "Character 4", image: "/character4_profile.png", vrm: "/character4.vrm" },
-    { id: "character5", name: "Character 5", image: "/character5_profile.png", vrm: "/character5.vrm" },
+    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voice: "nova" },
+    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer", cameraOffset: { y: 1.2 } },
+    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy", cameraOffset: { y: 0.3 } },
+    { id: "obama", name: "Obama", image: "/obama_profile.png", vrm: "/obama/scene.gltf", voice: "onyx", isGltf: true, cameraOffset: { y: 1.2 } },
+    { id: "rumi", name: "Rumi", image: "/rumi_profile.png", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voice: "echo", isGltf: true, cameraOffset: { y: 0.3 } },
   ];
   const [selectedCharacter, setSelectedCharacter] = useState(characters[0]);
 
@@ -380,7 +380,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                {activeHoldings === "crypto-holdings" && <CryptoHoldings onReturn={() => setActiveHoldings(null)} />}
+                {activeHoldings === "crypto-holdings" && <CryptoHoldings onReturn={() => setActiveHoldings(null)} characterSwapperOpen={characterSwapperOpen} setCharacterSwapperOpen={setCharacterSwapperOpen} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} />}
                 {activeHoldings === "stocks-holdings" && <StocksHoldings />}
                 {activeHoldings === "options-holdings" && <OptionsHoldings />}
                 {activeHoldings === "etfs-holdings" && <ETFsHoldings />}
@@ -832,10 +832,14 @@ export default function Home() {
                               {character.id === 'horse_girl'
                                 ? 'A UWU Horse for a UWO Mascot'
                                 : character.id === 'twinkie'
-                                  ? 'The perfect snack'
-                                  : character.id === 'caring_mother'
-                                    ? 'Who\'s a good boy?'
-                                    : 'Trading companion with unique personality and insights.'
+                                  ? 'The perfect snack companion for your trading journey'
+                                  : character.id === 'chaewon'
+                                    ? 'K-pop idol turned trading genius'
+                                    : character.id === 'obama'
+                                      ? 'Yes we can! Your presidential trading advisor'
+                                      : character.id === 'rumi'
+                                        ? 'K-pop demon hunter with crypto instincts'
+                                        : 'Trading companion with unique personality and insights.'
                               }
                             </p>
                           </div>

@@ -1,0 +1,11 @@
+Model Information:
+* title:	OBAMA
+* source:	https://sketchfab.com/3d-models/obama-908be6683b8743358929aa5f96069c48
+* author:	jamray747 (https://sketchfab.com/jamray747)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "OBAMA" (https://sketchfab.com/3d-models/obama-908be6683b8743358929aa5f96069c48) by jamray747 (https://sketchfab.com/jamray747) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

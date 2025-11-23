@@ -1,0 +1,564 @@
+{
+  "Textures": {
+    "T_Slowfield_GridSquares_01": "/Game/Gadgets/Assets/Slow_Field/Textures/T_Slowfield_GridSquares_01.T_Slowfield_GridSquares_01",
+    "VT_ClothSimWPO": "/Game/Global/MaterialFunctions/VT_ClothSimWPO.VT_ClothSimWPO",
+    "T_MidgreysRGB": "/Game/Global/Textures/Default/Blanks/T_MidgreysRGB.T_MidgreysRGB",
+    "T_Fortnite_Default_S": "/Game/Global/Textures/Default/Blanks/T_Fortnite_Default_S.T_Fortnite_Default_S",
+    "FlatNormalBlue": "/Game/Global/Textures/Default/Blanks/FlatNormalBlue.FlatNormalBlue",
+    "T_BlackMask": "/Game/Global/Textures/Default/Blanks/T_BlackMask.T_BlackMask",
+    "FN_Character_Skintone_Atlas": "/Game/Global/Textures/Default/Curve/FN_Character_Skintone_Atlas.FN_Character_Skintone_Atlas",
+    "T_Fuzz_MASK": "/Game/Global/Textures/Default/Masks_and_Gradients/T_Fuzz_MASK.T_Fuzz_MASK",
+    "T_ThinFilm_Spectrum_COLOR": "/Game/Global/Textures/Default/Thinfilm/T_ThinFilm_Spectrum_COLOR.T_ThinFilm_Spectrum_COLOR",
+    "3xPerlin_M": "/Game/Characters/Player/Female/Medium/Bodies/F_MED_Dark_Viking_01/Textures/3xPerlin_M.3xPerlin_M",
+    "FN_Character_Atlas": "/Game/Global/Textures/Default/Curve/FN_Character_Atlas.FN_Character_Atlas",
+    "T_Swirly_Noise_highContrast": "/Game/Weapons/WeaponSkins/Textures/T_Swirly_Noise_highContrast.T_Swirly_Noise_highContrast",
+    "T_VertGradient_MASK": "/Game/Global/Textures/Default/Masks_and_Gradients/T_VertGradient_MASK.T_VertGradient_MASK",
+    "T_WhiteMask": "/Game/Global/Textures/Default/Blanks/T_WhiteMask.T_WhiteMask",
+    "3pxRGBImage": "/Game/Global/Textures/Default/Masks_and_Gradients/3pxRGBImage.3pxRGBImage",
+    "AthenaCharacterCurveAtlas": "/Game/Characters/Shared/CurveAtlas/AthenaCharacterCurveAtlas.AthenaCharacterCurveAtlas",
+    "T_Default_Aniso": "/Game/Global/Textures/T_Default_Aniso.T_Default_Aniso",
+    "DefaultDiffuse": "/Engine/EngineMaterials/DefaultDiffuse.DefaultDiffuse",
+    "T_BlacksRGB": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "PM_Diffuse": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_D.T_LoanFloat_Head_D",
+    "Diffuse": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_D.T_LoanFloat_Head_D",
+    "PM_SpecularMasks": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_S.T_LoanFloat_Head_S",
+    "SRM": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_S.T_LoanFloat_Head_S",
+    "PM_Normals": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_N.T_LoanFloat_Head_N",
+    "Normals": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_N.T_LoanFloat_Head_N",
+    "Mask": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_M.T_LoanFloat_Head_M",
+    "ClothFuzz Texture": "/Game/Global/Textures/Default/Masks_and_Gradients/T_Fuzz_MASK.T_Fuzz_MASK",
+    "Thin Film Texture": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LilacLeather/Textures/Gradient_LilacLeather.Gradient_LilacLeather",
+    "ThinFilmUVOffsetTexture": "/Game/Characters/Player/Female/Medium/Bodies/F_MED_Dark_Viking_01/Textures/3xPerlin_M.3xPerlin_M",
+    "PM_Emissive": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "EmissiveGradient": "/Game/Global/Textures/Default/Masks_and_Gradients/T_VertGradient_MASK.T_VertGradient_MASK",
+    "UVScaleMap": "/Game/Global/Textures/Default/Blanks/T_WhiteMask.T_WhiteMask",
+    "PanningEmissiveColorGradient": "/Game/Global/Textures/Default/Masks_and_Gradients/3pxRGBImage.3pxRGBImage",
+    "AnisotropicTangentWeight": "/Game/Global/Textures/T_Default_Aniso.T_Default_Aniso",
+    "Emissive": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "EmissiveCropped": "/Game/Global/Textures/Default/Blanks/T_BlacksRGB.T_BlacksRGB",
+    "TechArtMask": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_FX.T_LoanFloat_Head_FX",
+    "T_LoanFloat_Head_M": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_M.T_LoanFloat_Head_M",
+    "T_LoanFloat_Head_FX": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LoanFloat/Textures/T_LoanFloat_Head_FX.T_LoanFloat_Head_FX",
+    "Gradient_LilacLeather": "/BRCosmetics/Characters/Player/Female/Medium/Bodies/F_MED_LilacLeather/Textures/Gradient_LilacLeather.Gradient_LilacLeather"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 14,
+    "Colors": {
+      "Character_Derez_Color_01": {
+        "R": 0.058334,
+        "G": 0.310926,
+        "B": 0.4,
+        "A": 1.0,
+        "Hex": "4497AA"
+      },
+      "Character_Derez_Color_02": {
+        "R": 0.0,
+        "G": 3.81986,
+        "B": 6.0,
+        "A": 1.0,
+        "Hex": "00FFFF"
+      },
+      "HitGlow": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "HitGlowOuter": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "Hide Vertex Channel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "ClothSim_WindVector": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "00FF00"
+      },
+      "ClothSim_ABP_TurbulenceUVOffset": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_Region_01_MaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "ClothSim_Region_02_MaskChannel": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "00FF00"
+      },
+      "ClothSim_ABP_R1_Velocity": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R2_Velocity": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R1_BonePosition": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R2_BonePosition": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R2_BoneVector": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R1_BoneVector": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R3_Velocity": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_Region_03_MaskChannel": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 1.0,
+        "A": 0.0,
+        "Hex": "0000FF"
+      },
+      "ClothSim_ABP_R4_Velocity": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_Region_04_MaskChannel": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R3_BonePosition": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R4_BonePosition": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R3_BoneVector": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_R4_BoneVector": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "000000"
+      },
+      "ClothSim_ABP_TurbulenceVector": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "0000FF"
+      },
+      "SkinTint": {
+        "R": 0.799103,
+        "G": 0.745404,
+        "B": 0.708376,
+        "A": 1.0,
+        "Hex": "E7E0DB"
+      },
+      "Skin Boost Color And Exponent": {
+        "R": 0.87,
+        "G": 0.66878,
+        "B": 0.694822,
+        "A": 2.0,
+        "Hex": "F0D6D9"
+      },
+      "ClothFuzzTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "ClothFuzzMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "SilkEdgeTint": {
+        "R": 0.109375,
+        "G": 0.109375,
+        "B": 0.109375,
+        "A": 1.0,
+        "Hex": "5D5D5D"
+      },
+      "SilkMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "ThinFilmMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "ThinFilmUVOffsetChannel": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "00FF00"
+      },
+      "ClearCoatMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "LUTChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "MetalLUTMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "GemGlowColor": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "GemMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "SS Color": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      },
+      "SubsurfaceMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "Emissive Panning Speed": {
+        "R": 0.0,
+        "G": 0.2,
+        "B": 0.2,
+        "A": 1.0,
+        "Hex": "007C7C"
+      },
+      "PanningOffsetMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "AdvancedEmissiveColor": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "AdvancedEmissiveColor2": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "SecondEmissiveColorChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "AdvancedEmissiveMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      },
+      "EmissiveTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "CroppedEmissiveUVs": {
+        "R": 0.0,
+        "G": 0.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "0000FF"
+      },
+      "EmissiveFXMaskChannel": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "FF0000"
+      }
+    },
+    "Scalars": {
+      "PerCharacterRimMultiplier": 1.0,
+      "SunnySideIntensity": 2.0,
+      "Distance Rim Boost": 8.0,
+      "PrimitiveDataRimisActive": 1.0,
+      "Fresnel Rim Light": 3.0,
+      "baseBrightness": 2.0,
+      "Darkside": 0.25,
+      "UsePannerAnimation": 0.0,
+      "NewDissolveGradient": 0.0,
+      "HitGlowFresnelBrightness": 1.4,
+      "HitGlowFresnelExponent": 1.0,
+      "HitGlowUsesPulse": 1.0,
+      "Global Character Vertex Hide Radius": 0.025,
+      "Hide Element 01": 1.0,
+      "Hide Element 02": 0.0,
+      "Hide Element 03": 0.0,
+      "Hide Element 04": 0.0,
+      "Hide Element 05": 0.0,
+      "Hide Element 06": 0.0,
+      "Hide Element 07": 0.0,
+      "Hide Element 08": 0.0,
+      "Hide Element 09": 0.0,
+      "Hide Element 10": 0.0,
+      "Hide Element 0_5": 0.0,
+      "Hide Element 1_5": 0.0,
+      "Hide Element 2_5": 0.0,
+      "Hide Element 3_5": 0.0,
+      "Hide Element 4_5": 0.0,
+      "Hide Element 5_5": 0.0,
+      "Hide Element 6_5": 0.0,
+      "Hide Element 7_5": 0.0,
+      "Hide Element 8_5": 0.0,
+      "Hide Element 9_5": 0.0,
+      "HideElementsOnlyConsidersRedChannel": 0.0,
+      "HideMaxChannelColor": 0.0,
+      "Hide Element 00": 0.0,
+      "ClothSim_TurbulenceNoiseTileDivisor": 128.0,
+      "ClothSim_WindStrength": 0.0,
+      "ClothSim_WindNoiseSpeed": 1.5,
+      "ClothSim_VelocityMax": 750.0,
+      "ClothSim_R1_BoneRadius": 5.0,
+      "ClothSim_R1_BoneThreshold": 2.0,
+      "ClothSim_R1_DragStrength": 5.0,
+      "ClothSim_R1_TurbulenceStrength": 3.0,
+      "ClothSim_R2_DragStrength": 4.0,
+      "ClothSim_R2_TurbulenceStrength": 3.0,
+      "ClothSim_R2_BoneRadius": 5.0,
+      "ClothSim_R2_BoneThreshold": 2.0,
+      "ClothSim_R3_DragStrength": 4.0,
+      "ClothSim_R3_TurbulenceStrength": 3.0,
+      "ClothSim_R3_BoneRadius": 5.0,
+      "ClothSim_R3_BoneThreshold": 2.0,
+      "ClothSim_R4_DragStrength": 4.0,
+      "ClothSim_R4_TurbulenceStrength": 3.0,
+      "ClothSim_R4_BoneRadius": 5.0,
+      "ClothSim_R4_BoneThreshold": 2.0,
+      "ClothSim_VertexNormalNoiseInfluence": 0.0,
+      "ClothSim_TurbulenceBias": 0.0,
+      "ClothSim_TurbulenceScale": 1.0,
+      "ClothSim_ABP_TurbulenceVector_Strength": 0.0,
+      "ClothSim_WindDragMultiplier": 1.0,
+      "FP_MaskRadius": 40.0,
+      "FP_MaskHardness": 0.2,
+      "FP_MeshOffset": -25.0,
+      "FP_MaskWidth": 120.0,
+      "FP_MaskHeight": 25.0,
+      "FP_Power": 4.0,
+      "FP_MaskPosZ": 150.0,
+      "FP_WPOStrength": 0.0,
+      "FP_FOVStrength": 0.0,
+      "FP_FOVInterpolation_BlendHeight": 120.0,
+      "FP_LerpFOV_BottomWidth": 35.0,
+      "FP_LerpFOV_TopWidth": 20.0,
+      "FP_LerpFOV_TopDepth": 90.0,
+      "FP_LerpFOV_BottomDepth": 90.0,
+      "Cosmetic Emissive EyeAdaptation Alpha": 1.0,
+      "MetalMaskPowerIntensity": 4.0,
+      "SkinSubsurfaceIntensity": 0.4,
+      "Skintone": 41.0,
+      "HumanSkin": 1.0,
+      "Global Skin Boost EX": 0.75,
+      "IsSmallerCharacter": 1.0,
+      "ClothFuzzTiling": 4.0,
+      "ClothFuzzExponent": 4.0,
+      "Fuzz Fresnel Blend": 1.0,
+      "ClothShaderIntensity": 1.0,
+      "ClothRoughness": 1.0,
+      "ClothScatteringMin": 0.75,
+      "ClothScatteringMax": 1.0,
+      "Cloth_BaseColorIntensity": 0.9,
+      "ClothSubsurfaceIntensity": 1.0,
+      "Standard Quality Cloth Fuzz Intensity Multiplier": 1.0,
+      "Preview Standard Quality Cloth Fuzz - A/B Slider": 0.0,
+      "ClothRoughnesss_StandardQuality": 1.0,
+      "Standard Quality Cloth Fuzz Tint Influence": 0.0,
+      "Silk Fresnel": 2.0,
+      "SilkFresnelMin": 0.0,
+      "SilkFresnelMax": 1.0,
+      "SilkEdgeAniso": 0.5,
+      "SilkBaseColorBrightness": 1.0,
+      "ThinFilmWarp": 0.6,
+      "ThinFilmIntensity": 1.0,
+      "ThinFilmScale": 3.0,
+      "ThinFilmExponent": 0.0,
+      "ThinFilmOffset": 0.5,
+      "RoughnessInfluence": 1.0,
+      "ThinFilmUVOffsetIntensity": 0.2,
+      "UvFilmOffsetTiling": 2.0,
+      "UnderCoatRoughness": 0.1,
+      "RoughnessMapAffectClearCoatRoughness": 0.0,
+      "UnderCoatMetallicMultiplier": 1.0,
+      "MetalLutIntensity": 1.0,
+      "Metal LUT Curve": 0.0,
+      "GemFresnelPower": 2.0,
+      "GemLightScatter": 1.0,
+      "GemDeepness": 0.5,
+      "GemSpecularAdjustment": 1.1,
+      "SSOpacity": 0.0,
+      "SSFresnelExponent": 4.0,
+      "SSInnerStrength": 0.0,
+      "SSOuterStrength": 0.85,
+      "EmissivePannerScale": 1.0,
+      "TriPlannerAxisBlendStrength": 1.0,
+      "EmissiveTextureConstantScaleDivisor": 40.0,
+      "GradientSpeed_X": 0.0,
+      "GradientSpeed_Y": 0.2,
+      "UVOffsetU": 0.0,
+      "UVOffsetV": 0.0,
+      "UVScaleMapIntensity": 1.0,
+      "PanningEmissiveColorCurve": 24.0,
+      "AdvancedEmissiveFresnelPower": 2.0,
+      "InvertAdvancedEmissiveFresnel": 0.0,
+      "SineSpeed": 1.0,
+      "AdvancedEmissiveBrightnessMax": 1.0,
+      "AdvancedEmissiveBrightnessMin": 0.0,
+      "AnisotropyMaxWeight": 1.0,
+      "AnisotropyMaxWeight_StandardQuality": 1.0,
+      "EmissiveBrightness": 1.0,
+      "EmissiveMobileMultiplier": 1.0,
+      "EmissiveFresnelPower": 4.0,
+      "UseTechArtMaskForOpacity": 0.0,
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {
+      "Use Vertex Colors for Mask": true,
+      "UseThinFilm": true
+    },
+    "Properties": {
+      "ShadingModels": {
+        "ShadingModelField": 310
+      },
+      "bUsedWithSkeletalMesh": true,
+      "bUsedWithNiagaraMeshParticles": true,
+      "bUsedWithMorphTargets": true,
+      "bUsedWithClothing": true,
+      "bUsedWithNanite": true,
+      "bUseMaterialAttributes": true,
+      "PixelDepthOffsetMode": "EPixelDepthOffsetMode::PDOM_Legacy",
+      "StateId": "9055DDCC-46AD8FC5-642885B3-B1D2230F",
+      "bIncludedInBaseGame": true,
+      "bOverrideSubsurfaceProfile": true,
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_FromMaterialExpression",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "SubsurfaceProfile": {
+        "ObjectName": "SubsurfaceProfile'SSP_SkinTone_LightNeutral'",
+        "ObjectPath": "/Game/Packages/Fortress_SharedMaterials/Textures/SSP_SkinTone_LightNeutral.0"
+      },
+      "bHasStaticPermutationResource": true
+    },
+    "HasTopDiffuse": true,
+    "HasTopNormals": true,
+    "HasTopSpecularMasks": true,
+    "HasTopEmissive": true,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}
