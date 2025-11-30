@@ -3,6 +3,11 @@
 .env.local
 .env.*.local
 
+# Documentation with sensitive information
+FIXES_SUMMARY.md
+*_summary.md
+*fixes*.md
+
 # Python
 __pycache__/
 *.py[cod]
