@@ -260,9 +260,10 @@ function HoldingCard({ holding, currentPrice, isConnected, onClick }: HoldingCar
 interface CryptoHoldingsDashboardProps {
   onHoldingClick?: (holding: Holding) => void;
   resetFilter?: boolean;
+  voiceAgentAudio?: HTMLAudioElement | null;
 }
 
-export default function CryptoHoldingsDashboard({ onHoldingClick, resetFilter }: CryptoHoldingsDashboardProps = {}) {
+export default function CryptoHoldingsDashboard({ onHoldingClick, resetFilter, voiceAgentAudio }: CryptoHoldingsDashboardProps = {}) {
   const [filter, setFilter] = useState<HoldingsFilter>("all");
 
   // Reset filter to "all" when resetFilter prop is true

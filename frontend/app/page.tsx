@@ -418,11 +418,12 @@ export default function Home() {
         {/* LEFT COLUMN */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Main Content Area - scrollable */}
-          <div className="flex-1 border-r overflow-y-auto min-h-0" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+          <div className="flex-1 border-r overflow-y-auto min-h-0 relative" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
             {activePortfolio === null && activeHoldings === null ? (
               <CryptoHoldingsDashboard
                 key={homeResetKey}
                 resetFilter={homeResetKey > 0}
+                voiceAgentAudio={voiceAgent.currentAudioElement}
                 onHoldingClick={(holding) => {
                   // Navigate to the appropriate holdings view based on type
                   const holdingsViewMap: Record<string, HoldingsView> = {
@@ -453,7 +454,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                {activeHoldings === "crypto-holdings" && <CryptoHoldings onReturn={() => setActiveHoldings(null)} characterSwapperOpen={characterSwapperOpen} setCharacterSwapperOpen={setCharacterSwapperOpen} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} />}
+                {activeHoldings === "crypto-holdings" && <CryptoHoldings onReturn={() => setActiveHoldings(null)} characterSwapperOpen={characterSwapperOpen} setCharacterSwapperOpen={setCharacterSwapperOpen} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} voiceAgentAudio={voiceAgent.currentAudioElement} />}
                 {activeHoldings === "stocks-holdings" && <StocksHoldings />}
                 {activeHoldings === "options-holdings" && <OptionsHoldings />}
                 {activeHoldings === "etfs-holdings" && <ETFsHoldings />}

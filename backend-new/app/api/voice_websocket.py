@@ -414,7 +414,7 @@ class VoiceSession:
             await tts.finalize()
 
             # Stream audio chunks to frontend
-            async for audio_chunk in tts.receive_audio():
+            async for audio_chunk, metadata in tts.receive_audio():
                 # Check if we were interrupted
                 if not self.is_speaking:
                     logger.info("🛑 TTS interrupted, stopping stream")
@@ -423,10 +423,20 @@ class VoiceSession:
                 # Encode audio as base64
                 audio_base64 = base64.b64encode(audio_chunk).decode("utf-8")
 
-                await self.send_message({
+                # Prepare message with audio and optional alignment data
+                message = {
                     "type": "agent_audio",
                     "audio": audio_base64
-                })
+                }
+
+                # Include alignment data if available
+                if "alignment" in metadata:
+                    message["alignment"] = metadata["alignment"]
+                    logger.debug(f"Sending alignment with audio chunk")
+                if "normalizedAlignment" in metadata:
+                    message["normalizedAlignment"] = metadata["normalizedAlignment"]
+
+                await self.send_message(message)
 
             # Done speaking
             self.is_speaking = False

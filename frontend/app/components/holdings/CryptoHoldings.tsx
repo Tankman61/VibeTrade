@@ -52,9 +52,10 @@ interface CryptoHoldingsProps {
   setCharacterSwapperOpen?: (open: boolean | ((prev: boolean) => boolean)) => void;
   selectedCharacter?: Character;
   setSelectedCharacter?: (character: Character) => void;
+  voiceAgentAudio?: HTMLAudioElement | null;
 }
 
-export default function CryptoHoldings({ initialSelectedHolding = null, onReturn, characterSwapperOpen = false, setCharacterSwapperOpen, selectedCharacter: parentSelectedCharacter, setSelectedCharacter: parentSetSelectedCharacter }: CryptoHoldingsProps = {}) {
+export default function CryptoHoldings({ initialSelectedHolding = null, onReturn, characterSwapperOpen = false, setCharacterSwapperOpen, selectedCharacter: parentSelectedCharacter, setSelectedCharacter: parentSetSelectedCharacter, voiceAgentAudio }: CryptoHoldingsProps = {}) {
   const [holdings, setHoldings] = useState<Holding[]>([
     { id: "1", symbol: "BTC", name: "Bitcoin", quantity: "0", avgPrice: "0" },
     { id: "2", symbol: "ETH", name: "Ethereum", quantity: "0", avgPrice: "0" },
@@ -226,13 +227,13 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   // Character states
   const [isMuted, setIsMuted] = useState(false);
 
-  // Character data
+  // Character data - NO camera offsets (handled by VRMViewerCompact configs)
   const characters = [
     { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voice: "nova" },
-    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer", cameraOffset: { y: 0.6 } },
-    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy", cameraOffset: { y: 0.3 } },
-    { id: "obama", name: "Obama", image: "/obama_profile.png", vrm: "/obama/scene.gltf", voice: "onyx", isGltf: true, cameraOffset: { y: 0.6 } },
-    { id: "rumi", name: "Rumi", image: "/rumi_profile.png", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voice: "echo", isGltf: true, cameraOffset: { y: 0.3 } },
+    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer" },
+    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy" },
+    { id: "obama", name: "Obama", image: "/obama_profile.jpg", vrm: "/obama/scene.gltf", voice: "onyx", isGltf: true },
+    { id: "rumi", name: "Rumi", image: "/rumi_profile.jpg", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voice: "echo", isGltf: true },
   ];
   const [localSelectedCharacter, setLocalSelectedCharacter] = useState(characters[0]);
 
@@ -846,13 +847,13 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
       return;
     }
     
-    const range = visibleRange.to - visibleRange.from;
-    const center = visibleRange.from + range / 2;
+    const range = (visibleRange.to as number) - (visibleRange.from as number);
+    const center = (visibleRange.from as number) + range / 2;
     const newRange = range * 0.7; // Zoom in by 30%
     
     timeScale.setVisibleRange({
-      from: center - newRange / 2,
-      to: center + newRange / 2,
+      from: (center - newRange / 2) as any,
+      to: (center + newRange / 2) as any,
     });
     
     setZoomLevel(prev => prev + 1);
@@ -912,11 +913,89 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
 
   if (selectedHolding) {
     return (
-      <div className="h-full w-full flex flex-col overflow-hidden" style={{ background: 'var(--slate-1)' }}>
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="absolute inset-0 flex overflow-hidden" style={{ background: 'var(--slate-1)' }}>
+        {/* VTuber Panel - Left Column (same as main view) */}
+        <div className="flex-shrink-0 border-r flex flex-col h-full" style={{ width: '38%', minWidth: '320px', maxWidth: '600px', background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+          {/* VTuber Viewer */}
+          <div
+            className="flex-1 cursor-pointer flex items-center justify-center p-4"
+            onClick={() => setAgentExpanded(!agentExpanded)}
+          >
+            <div className="w-full h-full rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+              <VRMViewerCompact
+                key={`dashboard-vrm-${selectedCharacter.id}`}
+                onSceneClick={() => setAgentExpanded(!agentExpanded)}
+                modelPath={selectedCharacter.vrm}
+                viewMode="dashboard"
+                isGltf={(selectedCharacter as any).isGltf}
+                voiceAgentAudio={voiceAgentAudio}
+              />
+
+              {/* Control Buttons */}
+              <div className="absolute top-3 left-3 flex gap-2">
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!voiceAgent.isConnected) {
+                      await voiceAgent.connect();
+                      await voiceAgent.startRecording();
+                      setIsMuted(false);
+                    } else {
+                      if (voiceAgent.isRecording) {
+                        voiceAgent.stopRecording();
+                        setIsMuted(true);
+                      } else {
+                        await voiceAgent.startRecording();
+                        setIsMuted(false);
+                      }
+                    }
+                  }}
+                  className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
+                  style={{
+                    background: voiceAgent.isRecording ? 'var(--red-9)' : 'transparent',
+                    borderColor: voiceAgent.isConnected ? 'var(--green-9)' : 'var(--slate-6)',
+                    color: voiceAgent.isRecording ? 'white' : 'var(--slate-11)'
+                  }}
+                  title={voiceAgent.isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
+                >
+                  {voiceAgent.isRecording ? (
+                    <SpeakerLoudIcon width="18" height="18" />
+                  ) : (
+                    <SpeakerOffIcon width="18" height="18" />
+                  )}
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setCharacterSwapperOpen(true);
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
+                  style={{
+                    background: 'transparent',
+                    borderColor: 'var(--slate-6)',
+                    color: 'var(--slate-11)'
+                  }}
+                >
+                  <PersonIcon width="18" height="18" />
+                </button>
+              </div>
+
+              <div className="absolute bottom-3 right-3 w-4 h-4 rounded-full border-2" style={{ background: 'var(--green-9)', borderColor: 'var(--slate-2)' }}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content - Chart and Details */}
+        <div className="flex-1 flex flex-col overflow-hidden h-full">
+          <div className="flex-1 overflow-y-auto min-h-0 pb-6">
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--slate-6)' }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 px-4 py-3 border-b mb-4" style={{ borderColor: 'var(--slate-6)' }}>
           <div>
             <Text size="1" className="mb-1 block" style={{ color: 'var(--slate-11)' }}>Quantity</Text>
             <Text size="4" weight="bold" style={{ color: 'var(--slate-12)' }}>{selectedHolding.quantity}</Text>
@@ -943,7 +1022,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
         </div>
 
         {/* Chart */}
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 mb-4">
           <div className="flex items-center justify-between mb-3">
             <Text size="3" weight="bold" style={{ color: 'var(--slate-12)' }}>
               Live Price Chart
@@ -960,7 +1039,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               </Text>
             </div>
           </div>
-          <div ref={chartContainerRef} className="w-full mb-4" style={{ minHeight: 'min(40vh, 500px)', height: 'min(40vh, 500px)' }} />
+          <div ref={chartContainerRef} className="w-full mb-4" style={{ minHeight: '350px', height: '350px' }} />
 
           {/* Chart Controls */}
           <div className="flex flex-wrap items-center gap-1 mb-4" style={{ gap: '0.25rem' }}>
@@ -1101,232 +1180,40 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
             </div>
           </div>
         </div>
-        </div>
 
-        {/* Bottom Data Panels - FIXED at bottom */}
-        <div className="shrink-0 border-t grid grid-cols-[256px_1fr_1fr] gap-0" style={{ borderColor: 'var(--slate-6)', height: '16rem' }}>
-            {/* VTuber Profile Card - With VRM Viewer */}
-            <div
-              className="border-r cursor-pointer flex items-center justify-center p-2"
-              style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', width: '256px' }}
-              onClick={() => setAgentExpanded(!agentExpanded)}
-            >
-              <div className="w-full h-full rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
-                <VRMViewerCompact
-                  key={`vrm-${selectedCharacter.id}`}
-                  onSceneClick={() => setAgentExpanded(!agentExpanded)}
-                  modelPath={selectedCharacter.vrm}
-                  cameraOffset={(selectedCharacter as any).cameraOffset}
-                  isGltf={(selectedCharacter as any).isGltf}
-                />
-
-                {/* Control Buttons */}
-                <div className="absolute top-3 left-3 flex gap-2">
-                  {/* Voice Agent Button - Microphone/Mute */}
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-
-                      if (!voiceAgent.isConnected) {
-                        // Connect and start recording instantly
-                        await voiceAgent.connect();
-                        await voiceAgent.startRecording();
-                        setIsMuted(false);
-                      } else {
-                        if (voiceAgent.isRecording) {
-                          // Stop recording but stay connected
-                          voiceAgent.stopRecording();
-                          setIsMuted(true);
-                        } else {
-                          // Start recording again
-                          await voiceAgent.startRecording();
-                          setIsMuted(false);
-                        }
-                      }
-                    }}
-                    className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
-                    style={{
-                      background: voiceAgent.isRecording ? 'var(--red-9)' : 'transparent',
-                      borderColor: voiceAgent.isConnected ? 'var(--green-9)' : 'var(--slate-6)',
-                      color: voiceAgent.isRecording ? 'white' : 'var(--slate-11)'
-                    }}
-                    title={voiceAgent.isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
-                  >
-                    {voiceAgent.isRecording ? (
-                      <SpeakerLoudIcon width="18" height="18" />
-                    ) : (
-                      <SpeakerOffIcon width="18" height="18" />
-                    )}
-                  </button>
-
-                  {/* Character Swap Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      console.log('🎭 Character swap button clicked!');
-                      console.log('🎭 Current state before:', characterSwapperOpen);
-                      setCharacterSwapperOpen(prev => {
-                        console.log('🎭 setState called, prev value:', prev);
-                        return true;
-                      });
-                      console.log('🎭 setState has been called');
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
-                    style={{
-                      background: 'transparent',
-                      borderColor: 'var(--slate-6)',
-                      color: 'var(--slate-11)'
-                    }}
-                  >
-                    <PersonIcon width="18" height="18" />
-                  </button>
-                </div>
-
-                <div className="absolute bottom-3 right-3 w-4 h-4 rounded-full border-2" style={{ background: 'var(--green-9)', borderColor: 'var(--slate-2)' }}></div>
-              </div>
-            </div>
-
-            {/* Polymarket Panel - Using Component */}
+        {/* Additional Info Sections */}
+        <div className="grid grid-cols-2 gap-4 px-4 mb-6">
+          {/* Polymarket Section */}
+          <div className="border rounded-lg p-4" style={{ borderColor: 'var(--slate-6)', background: 'var(--slate-2)' }}>
+            <Text size="2" weight="bold" className="mb-3 block" style={{ color: 'var(--slate-12)' }}>
+              Prediction Markets
+            </Text>
             <PolymarketPanel />
+          </div>
 
-            {/* Social Sentiment Panel - Match main page */}
-            <div
-              className="p-3 flex flex-col cursor-pointer"
-              style={{ background: 'var(--slate-2)' }}
-              onClick={() => setSentimentExpanded(!sentimentExpanded)}
-            >
-              <Flex justify="between" align="center" className="mb-2">
-                <Text size="1" weight="bold" className="uppercase tracking-wider" style={{ color: 'var(--slate-12)' }}>
-                  Social Sentiment
-                </Text>
-                    <DropdownMenu.Root
-                      open={subredditDropdownOpen}
-                      onOpenChange={(open) => {
-                        setSubredditDropdownOpen(open);
-                        if (open) setSentimentExpanded(false);
-                      }}
-                    >
-                      <DropdownMenu.Trigger>
-                        <Button
-                          variant="ghost"
-                          color="blue"
-                          size="1"
-                          radius="full"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', paddingInline: '0.75rem' }}
-                        >
-                          <Text size="1" weight="medium" style={{ color: 'var(--blue-11)' }}>
-                            {selectedSubreddit}
-                          </Text>
-                          <ChevronDownIcon width="12" height="12" style={{ color: 'var(--blue-11)' }} />
-                        </Button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Content
-                        side="top"
-                        align="end"
-                        sideOffset={6}
-                        collisionPadding={8}
-                        variant="soft"
-                        color="blue"
-                        size="1"
-                        style={{ maxHeight: '130px', overflowY: 'auto', minWidth: '190px' }}
-                      >
-                        {subredditOptions.map((option) => (
-                          <DropdownMenu.Item
-                            key={option}
-                            onSelect={() => {
-                              setSelectedSubreddit(option);
-                              setSentimentExpanded(false);
-                              setSubredditDropdownOpen(false);
-                            }}
-                            className="cursor-pointer"
-                            style={{
-                              fontWeight: option === selectedSubreddit ? 600 : 400,
-                              color: option === selectedSubreddit ? 'var(--blue-12)' : 'var(--slate-12)'
-                            }}
-                          >
-                            {option}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
+          {/* Social Sentiment Section */}
+          <div className="border rounded-lg p-4" style={{ borderColor: 'var(--slate-6)', background: 'var(--slate-2)' }}>
+            <Text size="2" weight="bold" className="mb-3 block" style={{ color: 'var(--slate-12)' }}>
+              Social Sentiment
+            </Text>
+            {sentimentStats && (
+              <div className="space-y-2">
+                <div>
+                  <Text size="1" style={{ color: 'var(--slate-11)' }}>Bull/Bear Ratio</Text>
+                  <Flex align="baseline" gap="1" className="mt-1">
+                    <Text size="4" weight="bold" className="font-mono" style={{ color: 'var(--green-11)' }}>{sentimentStats.bullish ?? 0}</Text>
+                    <Text size="2" style={{ color: 'var(--slate-11)' }}>/</Text>
+                    <Text size="4" weight="bold" className="font-mono" style={{ color: 'var(--red-10)' }}>{sentimentStats.bearish ?? 0}</Text>
                   </Flex>
-
-                  {!sentimentExpanded ? (
-                    <div className="flex-1 flex flex-col justify-start px-2">
-                      {loadingSentiment || !sentimentStats ? (
-                        <Text size="1" style={{ color: 'var(--slate-11)' }}>Loading...</Text>
-                      ) : (
-                        <Flex direction="column" gap="2" className="mt-2">
-                          <div>
-                            <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Bullish/Bearish Ratio</Text>
-                            <Flex align="baseline" gap="1">
-                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--green-11)' }}>{sentimentStats.bullish ?? 0}</Text>
-                              <Text size="2" style={{ color: 'var(--slate-11)' }}>/</Text>
-                              <Text size="5" weight="bold" className="font-mono" style={{ color: 'var(--red-10)' }}>{sentimentStats.bearish ?? 0}</Text>
-                            </Flex>
-                          </div>
-                          <div>
-                            <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Sentiment Score</Text>
-                            <Text size="4" weight="bold" className="font-mono" style={{ color: (sentimentStats.score ?? 0) >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>{sentimentScoreLabel}</Text>
-                          </div>
-                          <div>
-                            <Text size="1" className="block" style={{ color: 'var(--slate-11)', marginBottom: '0.15rem' }}>Post Volume (24h)</Text>
-                            <Text size="4" weight="bold" className="font-mono" style={{ color: 'var(--slate-12)' }}>{sentimentStats.volume || "0"}</Text>
-                          </div>
-                        </Flex>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin"
-                      style={{ maxHeight: '200px', marginTop: sentimentExpanded ? 0 : '0.5rem' }}
-                    >
-                      {loadingReddit ? (
-                        <Text size="1" style={{ color: 'var(--slate-11)' }}>Loading posts...</Text>
-                      ) : redditPosts.length === 0 ? (
-                        <Text size="1" style={{ color: 'var(--slate-11)' }}>No posts available</Text>
-                      ) : (
-                        redditPosts.map((post, idx) => (
-                          <a
-                            key={idx}
-                            href={post.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block p-2 border rounded"
-                            style={{ background: 'var(--slate-4)', borderColor: 'var(--slate-6)', textDecoration: 'none' }}
-                          >
-                            <Flex justify="between" className="mb-1">
-                              <div>
-                                <Text size="1" weight="medium" style={{ color: 'var(--blue-11)' }}>{post.username}</Text>
-                                {post.subreddit && (
-                                  <Text size="1" className="block" style={{ color: 'var(--slate-10)' }}>{post.subreddit}</Text>
-                                )}
-                              </div>
-                              <Text size="1" style={{ color: 'var(--slate-11)' }}>{post.posted_ago}</Text>
-                            </Flex>
-                            <Text size="1" className="leading-relaxed" style={{ color: 'var(--slate-12)' }}>
-                              {post.text}
-          </Text>
-                            <div className="mt-1">
-                              <span className={`text-xs px-1.5 py-0.5 rounded`} style={{
-                                background: post.sentiment === 'bullish' ? 'var(--green-3)' : 'var(--red-4)',
-                                color: post.sentiment === 'bullish' ? 'var(--green-11)' : 'var(--red-10)'
-                              }}>
-                                {post.sentiment}
-                              </span>
-                            </div>
-                          </a>
-                        ))
-                      )}
-                    </div>
-                  )}
-            </div>
+                </div>
+                <div>
+                  <Text size="1" style={{ color: 'var(--slate-11)' }}>Sentiment Score</Text>
+                  <Text size="3" weight="bold" className="font-mono block mt-1" style={{ color: (sentimentStats.score ?? 0) >= 0 ? 'var(--green-11)' : 'var(--red-10)' }}>{sentimentScoreLabel}</Text>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         </div>
 
         {/* Agent Modal - Inline from main page */}
@@ -1395,39 +1282,213 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
             </>
           )}
         </AnimatePresence>
+
+        {/* Character Swapper Modal - Shared */}
+        <AnimatePresence>
+          {characterSwapperOpen && (
+            <>
+              {console.log('🎭🎭🎭 RENDERING CHARACTER MODAL NOW!!! 🎭🎭🎭')}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9999]"
+                style={{ background: 'rgba(0,0,0,0.9)' }}
+                onClick={() => setCharacterSwapperOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="fixed inset-0 z-[10000] flex items-center justify-center p-8"
+                onClick={() => setCharacterSwapperOpen(false)}
+              >
+                <div
+                  className="relative w-full h-[750px] overflow-hidden"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none',
+                    maxWidth: '2000px'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center rounded-full z-10 transition-all hover:scale-110"
+                    style={{
+                      background: 'rgba(0,0,0,0.7)',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      color: 'white',
+                      backdropFilter: 'blur(4px)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                    }}
+                    onClick={() => setCharacterSwapperOpen(false)}
+                  >
+                    <Text size="5" style={{ fontWeight: 'bold', lineHeight: 1 }}>✕</Text>
+                  </button>
+                  <div className="flex justify-center items-center h-full">
+                    <div className="flex gap-2">
+                      {characters.map((character) => (
+                        <motion.div
+                          key={character.id}
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setSelectedCharacter(character);
+                            setCharacterSwapperOpen(false);
+                          }}
+                        >
+                          <motion.div
+                            className="h-[700px] rounded-3xl overflow-hidden relative"
+                            style={{
+                              width: '300px',
+                              background: 'rgba(0,0,0,0.3)',
+                              border: '4px solid rgba(255,255,255,0.4)',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                            }}
+                            whileHover={{
+                              width: '600px',
+                              transition: { duration: 0.3, ease: "easeOut" }
+                            }}
+                          >
+                            <img
+                              src={character.image}
+                              alt={character.name}
+                              className="w-full h-full object-cover"
+                            />
+                            <div
+                              className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"
+                              style={{ pointerEvents: 'none' }}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                              <h3 className="text-lg font-bold mb-1">{character.name}</h3>
+                              <p className="text-xs opacity-90">Trading companion</p>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         </div>
-      );
-    }
+      </div>
+    );
+  
 
   return (
     <>
-    <div className="h-full w-full overflow-y-auto" style={{ background: 'var(--slate-1)' }}>
-      {/* Header */}
-      <div className="border-b px-6 py-4" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
-        <Flex justify="between" align="center">
-          <Text size="8" weight="bold" style={{ color: 'var(--slate-12)' }}>
-            Crypto Holdings
-            <span style={{ marginLeft: '10px', color: characterSwapperOpen ? 'red' : 'green' }}>
-              {characterSwapperOpen ? '🔴 MODAL STATE = TRUE' : '🟢 MODAL STATE = FALSE'}
-            </span>
-          </Text>
-          <Button
-            onClick={() => {
-              console.log('🧪 TEST BUTTON: Setting characterSwapperOpen to TRUE');
-              setCharacterSwapperOpen(true);
-            }}
-            style={{ background: 'var(--blue-9)', color: 'white', cursor: 'pointer' }}
-          >
-            🧪 TEST: Open Modal
-          </Button>
-        </Flex>
+    <div className="absolute inset-0 flex overflow-hidden" style={{ background: 'var(--slate-1)' }}>
+      {/* VTuber Panel - Left Column (38% width, full height) */}
+      <div className="flex-shrink-0 border-r flex flex-col h-full" style={{ width: '38%', minWidth: '320px', maxWidth: '600px', background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+        {/* VTuber Viewer - Takes most of the space */}
+        <div
+          className="flex-1 cursor-pointer flex items-center justify-center p-4"
+          onClick={() => setAgentExpanded(!agentExpanded)}
+        >
+          <div className="w-full h-full rounded-lg border-2 shadow-lg relative overflow-hidden" style={{ background: 'var(--slate-3)', borderColor: 'var(--slate-6)' }}>
+            <VRMViewerCompact
+              key={`dashboard-vrm-${selectedCharacter.id}`}
+              onSceneClick={() => setAgentExpanded(!agentExpanded)}
+              modelPath={selectedCharacter.vrm}
+              viewMode="dashboard"
+              isGltf={(selectedCharacter as any).isGltf}
+              voiceAgentAudio={voiceAgentAudio}
+            />
+
+            {/* Control Buttons */}
+            <div className="absolute top-3 left-3 flex gap-2">
+              {/* Voice Agent Button - Microphone/Mute */}
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+
+                  if (!voiceAgent.isConnected) {
+                    // Connect and start recording instantly
+                    await voiceAgent.connect();
+                    await voiceAgent.startRecording();
+                    setIsMuted(false);
+                  } else {
+                    if (voiceAgent.isRecording) {
+                      // Stop recording but stay connected
+                      voiceAgent.stopRecording();
+                      setIsMuted(true);
+                    } else {
+                      // Start recording again
+                      await voiceAgent.startRecording();
+                      setIsMuted(false);
+                    }
+                  }
+                }}
+                className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
+                style={{
+                  background: voiceAgent.isRecording ? 'var(--red-9)' : 'transparent',
+                  borderColor: voiceAgent.isConnected ? 'var(--green-9)' : 'var(--slate-6)',
+                  color: voiceAgent.isRecording ? 'white' : 'var(--slate-11)'
+                }}
+                title={voiceAgent.isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
+              >
+                {voiceAgent.isRecording ? (
+                  <SpeakerLoudIcon width="18" height="18" />
+                ) : (
+                  <SpeakerOffIcon width="18" height="18" />
+                )}
+              </button>
+
+              {/* Character Swap Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  console.log('🎭 Character swap button clicked!');
+                  console.log('🎭 Current state before:', characterSwapperOpen);
+                  setCharacterSwapperOpen(prev => {
+                    console.log('🎭 setState called, prev value:', prev);
+                    return true;
+                  });
+                  console.log('🎭 setState has been called');
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110"
+                style={{
+                  background: 'transparent',
+                  borderColor: 'var(--slate-6)',
+                  color: 'var(--slate-11)'
+                }}
+              >
+                <PersonIcon width="18" height="18" />
+              </button>
+            </div>
+
+            <div className="absolute bottom-3 right-3 w-4 h-4 rounded-full border-2" style={{ background: 'var(--green-9)', borderColor: 'var(--slate-2)' }}></div>
+          </div>
+        </div>
       </div>
 
-      {/* Add New Holding Form */}
-      <div className="p-4 md:p-6 border-b" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', padding: 'clamp(1rem, 2vw, 1.5rem)' }}>
-        <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
-          Add New Holding
-        </Text>
+      {/* Main Content Area - Right Column */}
+      <div className="flex-1 flex flex-col overflow-hidden h-full">
+        {/* Header */}
+        <div className="border-b px-6 py-4 shrink-0" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)' }}>
+          <Flex justify="between" align="center">
+            <Text size="8" weight="bold" style={{ color: 'var(--slate-12)' }}>
+              Crypto Holdings
+            </Text>
+          </Flex>
+        </div>
+
+      {/* Scrollable Content Wrapper */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-6">
+        {/* Add New Holding Form */}
+        <div className="p-4 md:p-6 border-b mb-4" style={{ background: 'var(--slate-2)', borderColor: 'var(--slate-6)', padding: 'clamp(1rem, 2vw, 1.5rem)' }}>
+          <Text size="3" weight="bold" className="mb-4 block" style={{ color: 'var(--slate-12)' }}>
+            Add New Holding
+          </Text>
         <Flex gap="3" align="end">
           <div className="flex-1">
             <Text size="2" className="mb-2 block" style={{ color: 'var(--slate-11)' }}>Symbol</Text>
@@ -1468,7 +1529,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
       </div>
 
       {/* Holdings List */}
-      <div className="p-4 md:p-6 flex flex-col" style={{ padding: 'clamp(1rem, 2vw, 1.5rem)', height: 'calc(100vh - 300px)' }}>
+      <div className="p-4 md:p-6 flex flex-col flex-1" style={{ padding: 'clamp(1rem, 2vw, 1.5rem)' }}>
         <div className="space-y-2 flex-shrink-0">
           {/* Header Row */}
           <div className="grid grid-cols-[minmax(100px,150px)_2fr_minmax(100px,150px)_minmax(100px,150px)_minmax(60px,80px)] gap-2 md:gap-4 px-2 md:px-4 pb-2 border-b" style={{ borderColor: 'var(--slate-6)', gap: 'clamp(0.5rem, 1vw, 1rem)', paddingLeft: 'clamp(0.5rem, 1vw, 1rem)', paddingRight: 'clamp(0.5rem, 1vw, 1rem)' }}>
@@ -1481,8 +1542,8 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
         </div>
 
         {/* Scrollable Holdings Rows */}
-        <div className="overflow-y-auto flex-1 mt-2">
-          <div className="space-y-2">
+        <div className="overflow-y-auto flex-1 mt-2 pb-4">
+          <div className="space-y-2 pb-4">
           {holdings.map((holding) => (
             <div
               key={holding.id}
@@ -1519,6 +1580,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
           ))}
           </div>
         </div>
+      </div>
       </div>
     </div>
 
@@ -1631,6 +1693,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
           </>
         )}
       </AnimatePresence>
+    </div>
     </>
   );
-}
+}}

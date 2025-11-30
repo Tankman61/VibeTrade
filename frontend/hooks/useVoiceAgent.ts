@@ -18,6 +18,7 @@ interface UseVoiceAgentReturn {
   transcript: string;
   agentResponse: string;
   error: string;
+  currentAudioElement: HTMLAudioElement | null;
   connect: () => Promise<void>;
   disconnect: () => void;
   startRecording: () => Promise<void>;
@@ -59,6 +60,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
   const [transcript, setTranscript] = useState<string>(globalTranscript);
   const [agentResponse, setAgentResponse] = useState<string>(globalAgentResponse);
   const [error, setError] = useState<string>("");
+  const [currentAudioElement, setCurrentAudioElement] = useState<HTMLAudioElement | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -544,10 +546,12 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
       // Create and play audio element
       const audio = new Audio(url);
       currentAudioRef.current = audio;
+      setCurrentAudioElement(audio);  // Expose to consumers for lip sync
 
       audio.onended = () => {
         URL.revokeObjectURL(url);
         currentAudioRef.current = null;
+        setCurrentAudioElement(null);
         playNextAudio();
       };
 
@@ -555,6 +559,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         console.warn("Audio element error, skipping chunk");
         URL.revokeObjectURL(url);
         currentAudioRef.current = null;
+        setCurrentAudioElement(null);
         playNextAudio();
       };
 
@@ -562,6 +567,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         console.warn("Audio play failed, skipping chunk:", err.message);
         URL.revokeObjectURL(url);
         currentAudioRef.current = null;
+        setCurrentAudioElement(null);
         playNextAudio();
       });
     } catch (err) {
@@ -610,6 +616,7 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
     transcript,
     agentResponse,
     error,
+    currentAudioElement,
     connect,
     disconnect,
     startRecording,

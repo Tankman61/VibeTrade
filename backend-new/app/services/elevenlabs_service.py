@@ -175,8 +175,12 @@ class ElevenLabsTTS:
         await self.websocket.send(json.dumps(message))
         logger.debug("Finalized TTS stream")
 
-    async def receive_audio(self) -> AsyncGenerator[bytes, None]:
-        """Receive audio chunks"""
+    async def receive_audio(self) -> AsyncGenerator[tuple[bytes, dict], None]:
+        """Receive audio chunks with alignment data
+
+        Yields:
+            tuple[bytes, dict]: (audio_bytes, metadata) where metadata contains alignment info if available
+        """
         if not self.websocket:
             raise RuntimeError("TTS WebSocket not connected")
 
@@ -191,7 +195,16 @@ class ElevenLabsTTS:
                         continue
                     # Decode base64 audio
                     audio_bytes = base64.b64decode(data["audio"])
-                    yield audio_bytes
+
+                    # Extract alignment data if present
+                    metadata = {}
+                    if "alignment" in data:
+                        metadata["alignment"] = data["alignment"]
+                        logger.debug(f"Received alignment data: {data['alignment']}")
+                    if "normalizedAlignment" in data:
+                        metadata["normalizedAlignment"] = data["normalizedAlignment"]
+
+                    yield (audio_bytes, metadata)
 
                 # Check for final message
                 if data.get("isFinal"):

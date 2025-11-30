@@ -18,6 +18,12 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Reset scroll progress when landing page mounts to ensure camera starts at correct position
+    if (typeof window !== 'undefined') {
+      (window as any).landingCameraProgress = 0;
+      console.log('🔄 Landing page mounted - reset landingCameraProgress to 0');
+    }
+
     // Enable scrolling on body when landing page is mounted
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'auto';
@@ -134,6 +140,8 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
           style={{ zIndex: 1 }}
         >
           <VRMViewerCompact
+            key="landing-page-vrm"
+            modelPath="/horse_girl.vrm"
             viewMode="landing"
           />
         </motion.div>
