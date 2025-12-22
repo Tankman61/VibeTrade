@@ -176,9 +176,10 @@ interface VRMViewerCompactProps {
   targetOffset?: { x?: number; y?: number; z?: number };
   isGltf?: boolean;
   voiceAgentAudio?: HTMLAudioElement | null;
+  voiceId?: string;
 }
 
-export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_girl.vrm", viewMode = 'dashboard', cameraOffset, targetOffset, isGltf = false, voiceAgentAudio }: VRMViewerCompactProps = {}) {
+export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_girl.vrm", viewMode = 'dashboard', cameraOffset, targetOffset, isGltf = false, voiceAgentAudio, voiceId }: VRMViewerCompactProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
@@ -1692,11 +1693,11 @@ export default function VRMViewerCompact({ onSceneClick, modelPath = "/horse_gir
       // Don't stop animations - we want body animation to continue during speech
       // Only lip sync will be controlled by the viseme system
 
-      // Call TTS API
+      // Call TTS API with voiceId
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: ttsText }),
+        body: JSON.stringify({ text: ttsText, voiceId }),
       });
 
       if (!response.ok) {
