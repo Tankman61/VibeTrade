@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ElevenLabs API key from environment
 const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "sk_b70135eab11abc00daa9e8aa1a51965aeef9b2ca3c57df70";
-const VOICE_ID = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID || "ocZQ262SsZb9RIxcQBOj"; // Trial voice ID
+const DEFAULT_VOICE_ID = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID || "ocZQ262SsZb9RIxcQBOj"; // Default voice ID
 
 export async function POST(request: NextRequest) {
   try {
-    const { text } = await request.json();
+    const { text, voiceId } = await request.json();
+
+    // Use provided voiceId or fall back to default
+    const VOICE_ID = voiceId || DEFAULT_VOICE_ID;
 
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
-    console.log(`Generating speech with Flicker voice for text: ${text.substring(0, 50)}...`);
+    console.log(`Generating speech with voice ID: ${VOICE_ID} for text: ${text.substring(0, 50)}...`);
     console.log(`Using API key: ${ELEVENLABS_API_KEY.substring(0, 10)}...`);
 
     // First, test the API key by checking user info
