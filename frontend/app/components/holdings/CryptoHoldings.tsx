@@ -40,7 +40,7 @@ interface Character {
   name: string;
   image: string;
   vrm: string;
-  voice: string;
+  voiceId: string;
   cameraOffset?: { x?: number; y?: number; z?: number };
   isGltf?: boolean;
 }
@@ -178,9 +178,27 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
   const lastTranscriptRef = useRef<string>("");
   const lastAgentResponseRef = useRef<string>("");
 
-  // Voice Agent
+  // Character states
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Character data - NO camera offsets (handled by VRMViewerCompact configs)
+  const characters = [
+    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voiceId: "ocZQ262SsZb9RIxcQBOj" }, // Default voice
+    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voiceId: "kqVT88a5QfII1HNAEPTJ" },
+    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voiceId: "cgSgspJ2msm6clMCkdW9" },
+    { id: "obama", name: "Obama", image: "/obama_profile.jpg", vrm: "/obama/scene.gltf", voiceId: "ocZQ262SsZb9RIxcQBOj", isGltf: true }, // Using default voice for Obama
+    { id: "rumi", name: "Rumi", image: "/rumi_profile.jpg", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voiceId: "ocZQ262SsZb9RIxcQBOj", isGltf: true }, // Using default voice for Rumi
+  ];
+  const [localSelectedCharacter, setLocalSelectedCharacter] = useState(characters[0]);
+
+  // Use parent's selectedCharacter if provided, otherwise use local state
+  const selectedCharacter = parentSelectedCharacter || localSelectedCharacter;
+  const setSelectedCharacter = parentSetSelectedCharacter || setLocalSelectedCharacter;
+
+  // Voice Agent with character-specific voice (must be after selectedCharacter is defined)
   const voiceAgent = useVoiceAgent({
-    autoConnect: true,
+    autoConnect: false, // Manual connect to allow voice ID switching
+    voiceId: selectedCharacter.voiceId, // Pass the selected character's voice ID
     onTranscript: (text) => {
       // Add/update user message with final transcript
       if (text && text !== lastTranscriptRef.current) {
@@ -224,27 +242,24 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentExpanded]);
 
-  // Character states
-  const [isMuted, setIsMuted] = useState(false);
-
-  // Character data - NO camera offsets (handled by VRMViewerCompact configs)
-  const characters = [
-    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voice: "nova" },
-    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer" },
-    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy" },
-    { id: "obama", name: "Obama", image: "/obama_profile.jpg", vrm: "/obama/scene.gltf", voice: "onyx", isGltf: true },
-    { id: "rumi", name: "Rumi", image: "/rumi_profile.jpg", vrm: "/rumi__fortnite__kpop_demon_hunters_3d_model/scene.gltf", voice: "echo", isGltf: true },
-  ];
-  const [localSelectedCharacter, setLocalSelectedCharacter] = useState(characters[0]);
-
-  // Use parent's selectedCharacter if provided, otherwise use local state
-  const selectedCharacter = parentSelectedCharacter || localSelectedCharacter;
-  const setSelectedCharacter = parentSetSelectedCharacter || setLocalSelectedCharacter;
-
-  // Debug: Log when character changes and reconnect voice agent with new voice
+  // Reconnect voice agent when character changes to use new voice
   useEffect(() => {
-    console.log('🎭 Current character updated to:', selectedCharacter.name, selectedCharacter.vrm, 'voice:', selectedCharacter.voice);
-  }, [selectedCharacter]);
+    console.log('🎭 Current character updated to:', selectedCharacter.name, selectedCharacter.vrm, 'voiceId:', selectedCharacter.voiceId);
+
+    // If voice agent is connected, disconnect and reconnect with new voice ID
+    if (voiceAgent.isConnected) {
+      console.log('🔄 Reconnecting voice agent with new voice ID:', selectedCharacter.voiceId);
+      voiceAgent.disconnect();
+
+      // Small delay to ensure clean disconnect before reconnecting
+      setTimeout(() => {
+        // Create a new useVoiceAgent instance would be complex, so for now we'll need to
+        // reconnect manually. The voiceId in options should be updated by React's closure.
+        // TODO: Consider refactoring useVoiceAgent to support dynamic voiceId updates
+        voiceAgent.connect();
+      }, 100);
+    }
+  }, [selectedCharacter, voiceAgent]);
 
   // Debug: Log when modal state changes
   useEffect(() => {
@@ -929,6 +944,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                 viewMode="dashboard"
                 isGltf={(selectedCharacter as any).isGltf}
                 voiceAgentAudio={voiceAgentAudio}
+                voiceId={selectedCharacter.voiceId}
               />
 
               {/* Control Buttons */}
@@ -1397,6 +1413,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
               viewMode="dashboard"
               isGltf={(selectedCharacter as any).isGltf}
               voiceAgentAudio={voiceAgentAudio}
+              voiceId={selectedCharacter.voiceId}
             />
 
             {/* Control Buttons */}
