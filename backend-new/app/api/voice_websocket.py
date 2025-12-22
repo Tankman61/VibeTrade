@@ -7,7 +7,7 @@ import json
 import base64
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.services.elevenlabs_service import elevenlabs_service
@@ -22,9 +22,10 @@ class VoiceSession:
     """
     Manages a single voice conversation session
     """
-    def __init__(self, websocket: WebSocket, thread_id: str):
+    def __init__(self, websocket: WebSocket, thread_id: str, voice_id: Optional[str] = None):
         self.websocket = websocket
         self.thread_id = thread_id
+        self.voice_id = voice_id  # Optional voice ID for character-specific voices
         self.stt = None
         self.tts = None
         self.current_tts = None  # Track active TTS connection for immediate interruption
@@ -49,8 +50,8 @@ class VoiceSession:
             self.stt = elevenlabs_service.create_stt()
             await self.stt.connect(sample_rate=16000, codec="pcm")
 
-            # Create TTS instance
-            self.tts = elevenlabs_service.create_tts()
+            # Create TTS instance with optional voice_id
+            self.tts = elevenlabs_service.create_tts(voice_id=self.voice_id)
             await self.tts.connect(
                 model_id="eleven_turbo_v2_5",
                 output_format="mp3_44100_192",
@@ -60,7 +61,7 @@ class VoiceSession:
                 speaking_rate=1.3  # 30% faster than default
             )
 
-            logger.info(f"✅ Voice session started: {self.thread_id}")
+            logger.info(f"✅ Voice session started: {self.thread_id} with voice_id: {self.voice_id or 'default'}")
             return True
 
         except Exception as e:
@@ -396,7 +397,7 @@ class VoiceSession:
 
             # Create fresh TTS connection for this response (avoids timeout)
             from app.services.elevenlabs_service import elevenlabs_service
-            tts = elevenlabs_service.create_tts()
+            tts = elevenlabs_service.create_tts(voice_id=self.voice_id)
             await tts.connect(
                 model_id="eleven_turbo_v2_5",
                 output_format="mp3_44100_192",
@@ -501,7 +502,7 @@ async def voice_agent_websocket(websocket: WebSocket):
 
     Protocol:
     Client → Server:
-        - {"type": "start", "thread_id": "session-123"}
+        - {"type": "start", "thread_id": "session-123", "voiceId": "optional-elevenlabs-voice-id"}
         - {"type": "audio_chunk", "audio": "base64_encoded_audio"}
         - {"type": "audio_end"}
         - {"type": "stop"}
@@ -536,9 +537,10 @@ async def voice_agent_websocket(websocket: WebSocket):
             return
 
         thread_id = data.get("thread_id", "default-voice-session")
+        voice_id = data.get("voiceId")  # Optional voice ID for character-specific voices
 
-        # Create voice session
-        session = VoiceSession(websocket, thread_id)
+        # Create voice session with optional voice_id
+        session = VoiceSession(websocket, thread_id, voice_id=voice_id)
         success = await session.start()
 
         if not success:
