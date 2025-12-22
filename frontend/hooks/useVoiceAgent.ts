@@ -8,6 +8,7 @@ interface UseVoiceAgentOptions {
   onAgentResponse?: (text: string) => void;
   onError?: (error: string) => void;
   autoConnect?: boolean;
+  voiceId?: string; // Optional ElevenLabs voice ID for character-specific voices
 }
 
 interface UseVoiceAgentReturn {
@@ -313,11 +314,19 @@ export function useVoiceAgent(options: UseVoiceAgentOptions = {}): UseVoiceAgent
         globalIsConnected = true;
         setIsConnected(true);
 
-        // Send start message with persistent thread_id
-        ws.send(JSON.stringify({
+        // Send start message with persistent thread_id and optional voiceId
+        const startMessage: any = {
           type: "start",
           thread_id: threadId
-        }));
+        };
+
+        // Add voiceId if provided (use optionsRef for latest value)
+        if (optionsRef.current.voiceId) {
+          startMessage.voiceId = optionsRef.current.voiceId;
+          console.log(`🎤 Using voice ID: ${optionsRef.current.voiceId}`);
+        }
+
+        ws.send(JSON.stringify(startMessage));
       };
 
       ws.onmessage = async (event) => {
