@@ -106,11 +106,11 @@ export default function Home() {
     }
   });
 
-  // Character data
+  // Character data with ElevenLabs voice IDs
   const characters = [
-    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voice: "nova" },
-    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voice: "shimmer", cameraOffset: { y: 1.2 } },
-    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voice: "alloy", cameraOffset: { y: 0.3 } },
+    { id: "horse_girl", name: "Horse Girl", image: "/horsegirl_profile.png", vrm: "/horse_girl.vrm", voiceId: "ocZQ262SsZb9RIxcQBOj" }, // Default voice
+    { id: "twinkie", name: "Twinkie", image: "/twinkie_profile.png", vrm: "/twinkie.vrm", voiceId: "kqVT88a5QfII1HNAEPTJ", cameraOffset: { y: 1.2 } },
+    { id: "chaewon", name: "Chaewon", image: "/chaewon_profile.png", vrm: "/chaewon.vrm", voiceId: "cgSgspJ2msm6clMCkdW9", cameraOffset: { y: 0.3 } },
   ];
   const [selectedCharacter, setSelectedCharacter] = useState(characters[0]);
 
