@@ -2,10 +2,6 @@
 
 VibeTrade is a real-time BTC trading terminal powered by an agentic LLM, live market data, and a voice-first interaction pipeline. It ingests multiple data streams, computes a risk score every second, and uses a LangGraph agent to inspect market conditions, analyze sentiment, and execute paper trades through Alpaca. 
 
-<p align="center">
-  <img src="https://ibb.co/xqwvHPRQ" width="700"/>
-</p>
-
 ## What it does
 
 * Streams **live BTC price** from Alpaca
