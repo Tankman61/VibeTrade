@@ -21,10 +21,6 @@ market data → frontend,
 agent decisions → frontend,
 orders → portfolio panel.
 
-<p align="center">
-  <img src="https://ibb.co/1YGRRnqX" width="700"/>
-</p>
-
 
 
 ## **How it works**
