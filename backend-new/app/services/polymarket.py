@@ -1,7 +1,7 @@
 import httpx
 import json
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -374,7 +374,7 @@ class PolymarketClient:
 
 
 # singleton
-_polymarket_client: PolymarketClient | None = None
+_polymarket_client: Optional[PolymarketClient] = None
 
 
 def get_polymarket_client() -> PolymarketClient:

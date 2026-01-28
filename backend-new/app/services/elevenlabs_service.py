@@ -21,6 +21,7 @@ class ElevenLabsSTT:
         self.api_key = api_key
         self.ws_url = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
         self.websocket = None
+        self.session_ready = False  # Track if session_started has been received
 
     async def connect(self, sample_rate: int = 16000, codec: str = "pcm"):
         """Connect to ElevenLabs STT WebSocket"""
@@ -34,11 +35,18 @@ class ElevenLabsSTT:
                 additional_headers={"xi-api-key": self.api_key}
             )
 
-            logger.info(f"✅ Connected to ElevenLabs STT (sample_rate={sample_rate})")
+            # Reset session ready flag
+            # Don't read session_started here - let the listener task handle it
+            # Reading here would consume the message and cause conflicts with the listener
+            self.session_ready = False
+            
+            logger.info(f"✅ Connected to ElevenLabs STT WebSocket (sample_rate={sample_rate})")
+            logger.info("⏳ Waiting for session_started message from listener task...")
+            
             return True
 
         except Exception as e:
-            logger.error(f"❌ Failed to connect to ElevenLabs STT: {e}")
+            logger.error(f"❌ Failed to connect to ElevenLabs STT: {e}", exc_info=True)
             return False
 
     async def send_audio(self, audio_base64: str, sample_rate: int = 16000, commit: bool = False):
@@ -47,17 +55,46 @@ class ElevenLabsSTT:
             raise RuntimeError("STT WebSocket not connected")
 
         try:
-            message = {
-                "message_type": "input_audio_chunk",  # Required!
-                "audio_base_64": audio_base64,
-                "sample_rate": sample_rate,
-                "commit": commit
-            }
+            # If commit is True and audio_base64 is empty, send commit message only
+            if commit and not audio_base64:
+                commit_message = {
+                    "message_type": "input_audio_chunk",
+                "audio_base_64": "",
+                "commit": True,
+                "sample_rate": 16000
+                }
+                await self.websocket.send(json.dumps(commit_message))
+                logger.debug("📤 Sent commit message to STT")
+                return
+            
+            # Send audio as JSON input_audio_chunk message
+            if audio_base64:
+                audio_message = {
+                    "message_type": "input_audio_chunk",
+                    "audio_base_64": audio_base64,
+                    "sample_rate": sample_rate
+                }
+                await self.websocket.send(json.dumps(audio_message))
+                logger.info(f"📤 Sent audio chunk to STT: {len(audio_base64)} base64 chars")
+            
+            # If commit is True after sending audio, send commit message
+            if commit and audio_base64:
+                commit_message = {
+                    "message_type": "input_audio_chunk",
+                "audio_base_64": "",
+                "commit": True,
+                "sample_rate": 16000
+                }
+                await self.websocket.send(json.dumps(commit_message))
+                logger.debug("📤 Sent commit message to STT after audio")
 
-            await self.websocket.send(json.dumps(message))
-
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.error(f"❌ STT connection closed during send: {e.code} - {e.reason}")
+            self.websocket = None
+            self.session_ready = False
+            raise
         except Exception as e:
-            logger.error(f"Error sending audio to STT: {e}")
+            logger.error(f"❌ Error sending audio to STT: {e}", exc_info=True)
             raise
 
     async def receive_transcripts(self) -> AsyncGenerator[dict, None]:
@@ -67,28 +104,67 @@ class ElevenLabsSTT:
 
         try:
             async for message in self.websocket:
-                data = json.loads(message)
+                # Handle both text (JSON) and binary messages
+                if isinstance(message, bytes):
+                    # Binary messages from ElevenLabs are not expected in STT
+                    # If we receive binary, log it but continue
+                    logger.debug(f"📨 STT received binary message: {len(message)} bytes")
+                    continue
+                
+                # Parse JSON message
+                try:
+                    data = json.loads(message)
+                except json.JSONDecodeError:
+                    logger.warning(f"⚠️ Failed to parse STT message as JSON: {message[:100]}")
+                    continue
+                
                 logger.info(f"📨 STT received: {data}")
 
                 # Handle different transcript types (ElevenLabs uses "message_type" field)
                 msg_type = data.get("message_type")
 
                 if msg_type == "partial_transcript":
-                    logger.info(f"🗣️ Partial: {data.get('text', '')}")
-                    yield {"type": "partial", "text": data.get("text", "")}
+                    text = data.get("text", "")
+                    logger.info(f"🗣️ Partial transcript: {text}")
+                    yield {"type": "partial", "text": text}
 
                 elif msg_type == "committed_transcript":
-                    logger.info(f"✅ Final: {data.get('text', '')}")
-                    yield {"type": "final", "text": data.get("text", "")}
+                    text = data.get("text", "")
+                    logger.info(f"✅ Final transcript: {text}")
+                    yield {"type": "final", "text": text}
 
-                elif msg_type == "input_error":
-                    logger.error(f"STT Error: {data}")
-                    yield {"type": "error", "message": data.get("error", "Unknown error")}
+                elif msg_type == "input_error" or msg_type == "error":
+                    error_msg = data.get("error", data.get("message", "Unknown error"))
+                    logger.error(f"❌ STT Error: {error_msg}")
+                    yield {"type": "error", "message": error_msg}
+                
+                elif msg_type == "session_started" or msg_type == "session_begins":
+                    session_id = data.get('session_id', 'unknown')
+                    logger.info(f"✅ STT session started: {session_id}")
+                    # Mark session as ready (in case we didn't catch it during connect)
+                    self.session_ready = True
+                    # Don't yield this as a transcript, just log it
+                    continue
+                
+                elif msg_type == "session_terminated":
+                    logger.info("🛑 STT session terminated")
+                    break
+                
+                # Handle transcript messages that might have different structure
+                elif "text" in data and data.get("text"):
+                    text = data.get("text", "")
+                    # Check if it's a final or partial transcript
+                    if data.get("is_final", False) or "committed" in str(msg_type).lower():
+                        logger.info(f"✅ Final transcript (alt format): {text}")
+                        yield {"type": "final", "text": text}
+                    else:
+                        logger.info(f"🗣️ Partial transcript (alt format): {text}")
+                        yield {"type": "partial", "text": text}
 
         except websockets.exceptions.ConnectionClosed:
             logger.info("STT WebSocket closed")
         except Exception as e:
-            logger.error(f"STT receive error: {e}")
+            logger.error(f"STT receive error: {e}", exc_info=True)
 
     async def close(self):
         """Close STT WebSocket"""
@@ -121,13 +197,19 @@ class ElevenLabsTTS:
             # Build WebSocket URL with query params
             url = f"wss://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}/stream-input?model_id={model_id}&output_format={output_format}"
 
-            # Connect to WebSocket
-            self.websocket = await websockets.connect(url)
+            logger.info(f"🔌 Connecting to ElevenLabs TTS: {url}")
 
-            # Send initialization message with API key in JSON (NOT headers!)
+            # Connect to WebSocket with API key in headers
+            self.websocket = await websockets.connect(
+                url,
+                additional_headers={"xi-api-key": self.api_key}
+            )
+
+            logger.info("✅ WebSocket connected, sending initialization...")
+
+            # Send initialization message (API key is in headers, not message body)
             init_message = {
                 "text": " ",  # Required space character
-                "xi_api_key": self.api_key,  # API key in message body
                 "voice_settings": {
                     "stability": stability,
                     "similarity_boost": similarity_boost,
@@ -143,8 +225,18 @@ class ElevenLabsTTS:
                 }
             }
             await self.websocket.send(json.dumps(init_message))
-
             logger.info(f"✅ Connected to ElevenLabs TTS (voice={self.voice_id}, model={model_id}, format={output_format}, rate={speaking_rate})")
+            
+            # Wait for confirmation message
+            try:
+                response = await asyncio.wait_for(self.websocket.recv(), timeout=5.0)
+                response_data = json.loads(response)
+                logger.info(f"📨 TTS initialization response: {response_data}")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ No initialization response from TTS (continuing anyway)")
+            except Exception as e:
+                logger.warning(f"⚠️ Error reading TTS initialization response: {e}")
+
             return True
 
         except Exception as e:
@@ -182,23 +274,47 @@ class ElevenLabsTTS:
 
         try:
             async for message in self.websocket:
-                data = json.loads(message)
+                # Handle both JSON and binary messages
+                if isinstance(message, bytes):
+                    # Binary audio data (direct PCM or encoded)
+                    logger.debug(f"📥 Received binary audio: {len(message)} bytes")
+                    yield message
+                    continue
 
-                # Check for audio chunks
+                # Parse JSON message
+                try:
+                    data = json.loads(message)
+                except json.JSONDecodeError:
+                    logger.warning(f"⚠️ Failed to parse TTS message as JSON: {message[:100]}")
+                    continue
+
+                logger.debug(f"📨 TTS received: {data}")
+
+                # Check for audio chunks (base64 encoded)
                 if "audio" in data:
                     # Decode base64 audio
-                    audio_bytes = base64.b64decode(data["audio"])
-                    yield audio_bytes
+                    try:
+                        audio_bytes = base64.b64decode(data["audio"])
+                        logger.debug(f"📥 Decoded audio chunk: {len(audio_bytes)} bytes")
+                        yield audio_bytes
+                    except Exception as e:
+                        logger.error(f"❌ Failed to decode audio: {e}")
 
                 # Check for final message
-                if data.get("isFinal"):
-                    logger.info("TTS stream complete")
+                if data.get("isFinal") or data.get("message_type") == "stream_complete":
+                    logger.info("✅ TTS stream complete")
+                    break
+
+                # Check for errors
+                if data.get("message_type") == "error":
+                    error_msg = data.get("error", "Unknown TTS error")
+                    logger.error(f"❌ TTS error: {error_msg}")
                     break
 
         except websockets.exceptions.ConnectionClosed:
-            logger.info("TTS WebSocket closed")
+            logger.info("🛑 TTS WebSocket closed")
         except Exception as e:
-            logger.error(f"TTS receive error: {e}")
+            logger.error(f"❌ TTS receive error: {e}", exc_info=True)
 
     async def close(self):
         """Close TTS WebSocket"""

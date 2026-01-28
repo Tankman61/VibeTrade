@@ -9,7 +9,7 @@ from datetime import datetime
 
 from app.services.alpaca_trading import trading_service
 from app.api.market_websocket import manager
-from app.services.supabase import get_supabase
+from app.services.cache import get_lock_state, set_lock_state
 
 router = APIRouter()
 
@@ -38,44 +38,20 @@ def _normalize_symbol(ticker: str) -> str:
 def _check_account_lock() -> None:
     """
     Check if trading account is locked. Raises HTTPException if locked.
-    Used to enforce emergency lockout from lock_user_account() tool.
+    Uses in-memory lock state (auto-expires via cache module).
     """
     import logging
     logger = logging.getLogger(__name__)
-    logger.info("🔒 Checking account lock...")
+    logger.info("Checking account lock...")
 
-    db = get_supabase()
-    result = db.client.table("portfolio").select("id, is_locked, lock_reason, lock_expires_at").limit(1).execute()
-    logger.info(f"Lock check result: {result.data}")
-
-    if not result.data:
-        return  # No portfolio record, allow trade
-
-    lock_state = result.data[0]
+    lock_state = get_lock_state()
     is_locked = lock_state.get("is_locked", False)
 
-    # Check if lock has expired
     if is_locked:
-        lock_expires_at = lock_state.get("lock_expires_at")
-        if lock_expires_at:
-            try:
-                expiry = datetime.fromisoformat(lock_expires_at.replace("Z", "+00:00"))
-                if datetime.utcnow() > expiry.replace(tzinfo=None):
-                    # Lock expired, auto-unlock
-                    db.client.table("portfolio").update({
-                        "is_locked": False,
-                        "lock_reason": None,
-                        "lock_expires_at": None
-                    }).eq("id", lock_state.get("id")).execute()
-                    return  # Lock expired, allow trade
-            except (ValueError, AttributeError):
-                pass  # Invalid date format, treat as locked
-
-        # Account is locked and not expired
         reason = lock_state.get("lock_reason", "Emergency lockout active")
         raise HTTPException(
             status_code=403,
-            detail=f"🔒 Trading locked: {reason}"
+            detail=f"Trading locked: {reason}"
         )
 
 

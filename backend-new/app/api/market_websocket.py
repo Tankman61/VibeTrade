@@ -4,12 +4,11 @@ Handles WebSocket connections from frontend and broadcasts live price updates
 """
 import asyncio
 from typing import Dict, Set
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import logging
 import json
 
-from app.services.finnhub import finnhub_service
-# Note: Alpaca is only used for trading, not market data display
+from app.services.alpaca import alpaca_service
 
 logger = logging.getLogger(__name__)
 
@@ -49,25 +48,24 @@ class ConnectionManager:
         """Subscribe a connection to specific symbols"""
         if websocket not in self.connection_symbols:
             self.connection_symbols[websocket] = set()
-
+        
         # Normalize symbols (remove any /USD or USD suffixes for storage)
         normalized_symbols = []
         for s in symbols:
             clean_s = s.replace("/USD", "").replace("USD", "").replace("/", "")
             normalized_symbols.append(clean_s)
-
+            
         self.connection_symbols[websocket].update(normalized_symbols)
-
-        # Subscribe to Finnhub for all market data display
+        
+        # Subscribe to Alpaca for these symbols
         if data_type == "crypto":
-            await finnhub_service.subscribe_crypto(normalized_symbols)
-        elif data_type in ["stocks", "etfs", "options"]:
-            # Use Finnhub for stocks/etfs/options display too
-            # Note: Alpaca is only used for actual trading execution
-            await finnhub_service.subscribe_stocks(normalized_symbols)
-
-        logger.info(f"Subscribed {data_type} connection to: {normalized_symbols}")
-
+            # Alpaca expects clean symbols (BTC, ETH, etc.)
+            await alpaca_service.subscribe_crypto(normalized_symbols)
+        elif data_type == "stocks":
+            await alpaca_service.subscribe_stocks(normalized_symbols)
+            
+        logger.info(f"Subscribed {data_type} connection to symbols: {normalized_symbols}")
+        
         # Send confirmation
         await websocket.send_json({
             "type": "subscribed",
@@ -82,44 +80,29 @@ class ConnectionManager:
     async def broadcast_to_subscribers(self, data_type: str, symbol: str, message: dict):
         """Broadcast message to all connections subscribed to this symbol"""
         disconnected = set()
-
-        # NO LOGGING - this is called for every trade update (multiple times per second)
-
-        # Normalize the incoming symbol for comparison
-        # BTCUSD -> BTC, BTC/USD -> BTC, BTC -> BTC
-        def normalize_symbol(s: str) -> str:
-            # Remove /USD first, then remove USD suffix, then remove any remaining /
-            normalized = s.replace("/USD", "").replace("/", "")
-            # Remove USD suffix if present (e.g., BTCUSD -> BTC)
-            if normalized.endswith("USD"):
-                normalized = normalized[:-3]
-            return normalized.upper()
-
-        normalized_incoming = normalize_symbol(symbol)
-
+        
+        logger.info(f"🌐 Broadcasting to {data_type} subscribers for symbol {symbol}")
+        logger.info(f"🌐 Total connections: {len(self.active_connections[data_type])}")
+        
         for websocket in self.active_connections[data_type]:
             # Check if this connection is subscribed to this symbol
             subscribed_symbols = self.connection_symbols.get(websocket, set())
-
-            # Check if any subscribed symbol matches (normalized)
-            should_send = False
-            for sub_symbol in subscribed_symbols:
-                normalized_sub = normalize_symbol(sub_symbol)
-                if normalized_incoming == normalized_sub:
-                    should_send = True
-                    break
-
-            # Also check direct match
-            if not should_send:
-                should_send = symbol in subscribed_symbols or normalized_incoming in subscribed_symbols
-
-            if should_send:
+            
+            logger.info(f"🌐 Connection subscribed to: {subscribed_symbols}")
+            
+            # Clean symbol for comparison (remove /USD etc)
+            clean_symbol = symbol.replace("/USD", "").replace("/", "")
+            
+            if clean_symbol in subscribed_symbols or symbol in subscribed_symbols:
                 try:
+                    logger.info(f"✅ Sending message to WebSocket: {message}")
                     await websocket.send_json(message)
                 except Exception as e:
                     logger.error(f"Error sending to WebSocket: {e}")
                     disconnected.add(websocket)
-
+            else:
+                logger.info(f"❌ Symbol {clean_symbol} not in subscribed_symbols {subscribed_symbols}")
+                    
         # Clean up disconnected websockets
         for ws in disconnected:
             self.disconnect(ws, data_type)
@@ -129,10 +112,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-# Register callback with market data services to broadcast price updates
+# Register callback with Alpaca service to broadcast price updates
 async def broadcast_price_update(data_type: str, symbol: str, message: dict):
-    """Callback for market data services to broadcast price updates"""
-    # NO LOGGING - this is called for every trade update (multiple times per second)
+    """Callback for Alpaca service to broadcast price updates"""
+    logger.info(f"🔥 broadcast_price_update called! type={data_type}, symbol={symbol}, message={message}")
+    logger.info(f"🔥 Active connections for {data_type}: {len(manager.active_connections[data_type])}")
     await manager.broadcast_to_subscribers(data_type, symbol, message)
 
 
@@ -264,22 +248,19 @@ async def websocket_options(websocket: WebSocket):
 # REST endpoint to get current prices
 @router.get("/api/prices")
 async def get_current_prices():
-    """Get all current prices from memory (Finnhub for display)"""
+    """Get all current prices from memory"""
     return {
-        "prices": finnhub_service.get_all_prices()
+        "prices": alpaca_service.get_all_prices()
     }
 
 
 @router.get("/api/prices/{symbol}")
 async def get_symbol_price(symbol: str):
-    """Get current price for a specific symbol (from Finnhub)"""
-    symbol_upper = symbol.upper()
-    price = finnhub_service.get_price(symbol_upper)
-
+    """Get current price for a specific symbol"""
+    price = alpaca_service.get_price(symbol.upper())
     if price is None:
-        raise HTTPException(status_code=404, detail="Symbol not found or not subscribed")
-
+        return {"error": "Symbol not found or not subscribed"}, 404
     return {
-        "symbol": symbol_upper,
+        "symbol": symbol.upper(),
         "price": price
     }

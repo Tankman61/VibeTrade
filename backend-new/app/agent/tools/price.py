@@ -24,10 +24,15 @@ async def get_current_price(symbol: str = "BTC") -> str:
     Use this to check the current market price before making trading decisions.
     """
     try:
+        # Normalize symbol: "BTC" -> "BTCUSD", "BTC-USD" -> "BTCUSD"
+        normalized = symbol.upper().replace("-", "").replace("/", "")
+        if not normalized.endswith("USD"):
+            normalized = f"{normalized}USD"
+
         # Call FastAPI server's price endpoint (works across processes)
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{API_BASE_URL}/api/prices/{symbol}",
+                f"{API_BASE_URL}/api/prices/{normalized}",
                 timeout=5.0
             )
 

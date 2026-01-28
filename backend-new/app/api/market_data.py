@@ -1,62 +1,172 @@
 """
-Market data endpoints
-GET /api/risk-monitor - Get full risk monitor data (risk_score includes Reddit, Polymarket, Technical)
+Market data endpoints — live-fetch mode (no Supabase required)
+GET /api/risk-monitor - Get full risk monitor data
 GET /api/polymarket - Get Polymarket feed
 GET /api/reddit - Get Reddit sentiment feed
 GET /api/sentiment - Get aggregated sentiment stats
 """
-from fastapi import APIRouter, Query, HTTPException
-from app.services.supabase import get_supabase
+import logging
+from fastapi import APIRouter, Query
 from typing import Optional
+
+from app.services.cache import cache_get, cache_set
+from app.services.finnhub import get_btc_data, finnhub_service
+from app.services.polymarket import get_polymarket_client
+from app.services.reddit import get_reddit_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Hardcoded crypto watchlist tickers (replaces Supabase watchlist table)
+WATCHLIST_TICKERS = ["BTC", "ETH", "SOL", "DOGE", "XRP", "ADA"]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+async def _fetch_reddit_posts_cached():
+    """Fetch Reddit posts with 120s TTL cache (Reddit rate-limits aggressively)."""
+    cached = cache_get("reddit_posts")
+    if cached is not None:
+        return cached
+
+    client = get_reddit_client()
+    try:
+        raw_posts = await client.fetch_posts(limit_per_sub=10)
+    except Exception as e:
+        logger.error(f"Reddit fetch failed: {e}")
+        raw_posts = []
+
+    posts = []
+    for p in raw_posts:
+        posts.append({
+            "text": p.get("title", ""),
+            "username": p.get("username", ""),
+            "subreddit": p.get("subreddit", ""),
+            "sentiment": p.get("sentiment", "neutral"),
+            "posted_ago": p.get("posted_ago", ""),
+            "url": p.get("url", "https://reddit.com"),
+        })
+
+    cache_set("reddit_posts", posts, ttl_seconds=120)
+    return posts
+
+
+def _compute_sentiment_stats(posts):
+    """Compute aggregated sentiment from a list of posts."""
+    bullish = sum(1 for p in posts if p.get("sentiment") == "bullish")
+    bearish = sum(1 for p in posts if p.get("sentiment") == "bearish")
+    return {
+        "bullish": bullish,
+        "bearish": bearish,
+        "score": bullish - bearish,
+        "volume": str(len(posts)),
+    }
+
+
+def _calculate_risk_score(sentiment_score: int, price_change: float, polymarket_avg_odds: float) -> int:
+    """
+    Calculate risk_score using weighted formula (mirrors monitor worker):
+    - Sentiment component: 30%
+    - Technical component: 30%
+    - Polymarket component: 40%
+    """
+    # Sentiment component (30%)
+    if sentiment_score < -10:
+        sentiment_component = 90
+    elif sentiment_score < -5:
+        sentiment_component = 70
+    elif sentiment_score < 0:
+        sentiment_component = 50
+    elif sentiment_score < 5:
+        sentiment_component = 30
+    else:
+        sentiment_component = 10
+
+    # Technical component (30%)
+    if price_change <= -5:
+        technical_component = 100
+    elif price_change <= -3:
+        technical_component = 80
+    elif price_change <= -1:
+        technical_component = 60
+    elif price_change < 0:
+        technical_component = 40
+    elif price_change < 3:
+        technical_component = 20
+    else:
+        technical_component = 10
+
+    # Polymarket component (40%)
+    divergence = abs(polymarket_avg_odds - 0.5)
+    if divergence > 0.35:
+        polymarket_component = 90
+    elif divergence > 0.25:
+        polymarket_component = 70
+    elif divergence > 0.15:
+        polymarket_component = 50
+    else:
+        polymarket_component = 30
+
+    if polymarket_avg_odds < 0.3:
+        polymarket_component = min(100, polymarket_component + 20)
+
+    risk_score = int(
+        sentiment_component * 0.3
+        + technical_component * 0.3
+        + polymarket_component * 0.4
+    )
+    return max(0, min(100, risk_score))
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 @router.get("/risk-monitor")
 async def get_risk_monitor():
     """
     Get full risk monitor data including market overview and watchlist.
-
-    NOTE: risk_score is calculated by Monitor Worker using:
-    - Sentiment from Reddit (30%)
-    - Technical indicators (30%)
-    - Polymarket data (40%)
+    Fetches live data from Finnhub, Reddit, and Polymarket (cached 30s).
     """
-    db = get_supabase()
+    cached = cache_get("risk_monitor")
+    if cached is not None:
+        return cached
 
-    # Get latest market_context
-    context_result = db.client.table("market_context")\
-        .select("*")\
-        .order("created_at", desc=True)\
-        .limit(1)\
-        .execute()
-
-    if not context_result.data:
-        # Return empty state if no data
-        return {
-            "risk_level": {
-                "score": 0,
-                "level": "Low",
-                "summary": "No market data available"
-            },
-            "hype_level": {
-                "score": 0,
-                "level": "Low"
-            },
-            "market_overview": {
-                "btc_price": 0,
-                "price_change_24h": 0,
-                "volume_24h": "$0",
-                "price_range_24h": {"low": 0, "high": 0}
-            },
-            "technical": {"rsi": 0, "macd": 0},
-            "watchlist": []
+    # BTC price from Finnhub
+    try:
+        btc_data = await get_btc_data()
+    except Exception as e:
+        logger.warning(f"BTC data unavailable: {e}")
+        btc_data = {
+            "btc_price": 0,
+            "price_change_24h": 0,
+            "volume_24h": "$0",
+            "price_high_24h": 0,
+            "price_low_24h": 0,
         }
 
-    context = context_result.data[0]
+    # Sentiment from cached Reddit posts
+    posts = await _fetch_reddit_posts_cached()
+    sentiment_stats = _compute_sentiment_stats(posts)
 
-    # Determine risk level from score
-    risk_score = int(context.get("risk_score", 0))
+    # Polymarket average odds
+    try:
+        pm_client = get_polymarket_client()
+        pm_avg_odds = await pm_client.get_average_odds()
+    except Exception as e:
+        logger.warning(f"Polymarket odds unavailable: {e}")
+        pm_avg_odds = 0.5
+
+    # Risk score
+    risk_score = _calculate_risk_score(
+        sentiment_score=sentiment_stats["score"],
+        price_change=btc_data.get("price_change_24h", 0),
+        polymarket_avg_odds=pm_avg_odds,
+    )
+
     if risk_score < 40:
         risk_level = "Low"
     elif risk_score < 70:
@@ -64,8 +174,9 @@ async def get_risk_monitor():
     else:
         risk_level = "High"
 
-    # Determine hype level from score
-    hype_score = int(context.get("hype_score", 0))
+    # Hype level (derived from bullish sentiment proportion)
+    total_posts = max(len(posts), 1)
+    hype_score = int((sentiment_stats["bullish"] / total_posts) * 100)
     if hype_score < 40:
         hype_level = "Low"
     elif hype_score < 70:
@@ -73,157 +184,79 @@ async def get_risk_monitor():
     else:
         hype_level = "High"
 
-    # Get watchlist
-    watchlist_result = db.client.table("watchlist")\
-        .select("ticker, price_change_24h")\
-        .order("ticker")\
-        .execute()
-
+    # Watchlist — live prices from Finnhub
     watchlist = []
-    for item in watchlist_result.data:
-        change_val = float(item["price_change_24h"]) if item["price_change_24h"] else 0
-        change_str = f"+{change_val}%" if change_val >= 0 else f"{change_val}%"
-        watchlist.append({
-            "ticker": item["ticker"].replace("-", "/"),
-            "change": change_str
-        })
+    for ticker in WATCHLIST_TICKERS:
+        price = finnhub_service.get_price(ticker)
+        # We don't have 24h change from Finnhub websocket, so show 0
+        change_str = "+0.0%"
+        watchlist.append({"ticker": f"{ticker}/USD", "change": change_str})
 
-    return {
+    result = {
         "risk_level": {
             "score": risk_score,
             "level": risk_level,
-            "summary": context.get("summary", "")
+            "summary": f"Risk computed from live data — sentiment={sentiment_stats['score']}, polymarket_odds={pm_avg_odds:.2f}",
         },
-        "hype_level": {
-            "score": hype_score,
-            "level": hype_level
-        },
+        "hype_level": {"score": hype_score, "level": hype_level},
         "market_overview": {
-            "btc_price": float(context.get("btc_price", 0)),
-            "price_change_24h": float(context.get("price_change_24h", 0)),
-            "volume_24h": context.get("volume_24h", "$0"),
+            "btc_price": btc_data.get("btc_price", 0),
+            "price_change_24h": btc_data.get("price_change_24h", 0),
+            "volume_24h": btc_data.get("volume_24h", "$0"),
             "price_range_24h": {
-                "low": float(context.get("price_low_24h", 0)) if context.get("price_low_24h") else 0,
-                "high": float(context.get("price_high_24h", 0)) if context.get("price_high_24h") else 0
-            }
+                "low": btc_data.get("price_low_24h", 0),
+                "high": btc_data.get("price_high_24h", 0),
+            },
         },
-        "technical": {
-            "rsi": float(context.get("rsi", 0)) if context.get("rsi") else 0,
-            "macd": float(context.get("macd", 0)) if context.get("macd") else 0
-        },
-        "watchlist": watchlist
+        "technical": {"rsi": 0, "macd": 0},
+        "watchlist": watchlist,
     }
+
+    cache_set("risk_monitor", result, ttl_seconds=30)
+    return result
 
 
 @router.get("/polymarket")
 async def get_polymarket():
-    """Get Polymarket prediction markets"""
-    db = get_supabase()
+    """Get Polymarket prediction markets (cached 60s)."""
+    cached = cache_get("polymarket")
+    if cached is not None:
+        return cached
 
-    result = db.client.table("feed_items")\
-        .select("title, metadata")\
-        .eq("source", "POLYMARKET")\
-        .order("created_at", desc=True)\
-        .limit(10)\
-        .execute()
-
-    if not result.data:
-        return []  # Return empty array if no data
+    client = get_polymarket_client()
+    try:
+        raw_markets = await client.fetch_btc_markets(limit=10)
+    except Exception as e:
+        logger.error(f"Polymarket fetch failed: {e}")
+        raw_markets = []
 
     markets = []
-    for item in result.data:
-        metadata = item["metadata"]
+    for m in raw_markets:
         markets.append({
-            "question": item["title"],
-            "probability": int(float(metadata.get("odds", 0)) * 100),  # Convert 0.68 to 68
-            "change": metadata.get("change", "+0%"),
-            "volume": metadata.get("volume", "0"),
-            "url": metadata.get("url", "https://polymarket.com")
+            "question": m.get("title", ""),
+            "probability": int(float(m.get("odds", 0.5)) * 100),
+            "change": m.get("change") or "+0%",
+            "volume": m.get("volume") or "0",
+            "url": m.get("url") or "https://polymarket.com",
         })
 
+    cache_set("polymarket", markets, ttl_seconds=60)
     return markets
 
 
 @router.get("/reddit")
 async def get_reddit(subreddit: Optional[str] = Query("All", description="Filter by subreddit")):
-    """Get Reddit posts with optional subreddit filter"""
-    db = get_supabase()
+    """Get Reddit posts with optional subreddit filter (cached 120s)."""
+    posts = await _fetch_reddit_posts_cached()
 
-    result = db.client.table("feed_items")\
-        .select("title, metadata")\
-        .eq("source", "REDDIT")\
-        .order("created_at", desc=True)\
-        .limit(50)\
-        .execute()
-
-    if not result.data:
-        return []  # Return empty array if no data
-
-    posts = []
-    for item in result.data:
-        metadata = item["metadata"]
-        post_subreddit = metadata.get("subreddit", "")
-
-        # Filter by subreddit if not "All"
-        if subreddit != "All" and post_subreddit != subreddit:
-            continue
-
-        posts.append({
-            "text": item["title"],
-            "username": metadata.get("username", ""),
-            "subreddit": post_subreddit,
-            "sentiment": metadata.get("sentiment", ""),
-            "posted_ago": metadata.get("posted_ago", ""),
-            "url": metadata.get("url", "https://reddit.com")
-        })
+    if subreddit and subreddit != "All":
+        posts = [p for p in posts if p.get("subreddit") == subreddit or p.get("subreddit") == f"r/{subreddit}"]
 
     return posts
 
 
 @router.get("/sentiment")
 async def get_sentiment():
-    """Get aggregated sentiment stats from Reddit, Polymarket, etc."""
-    db = get_supabase()
-
-    result = db.client.table("market_context")\
-        .select("sentiment_bullish, sentiment_bearish, sentiment_score, post_volume_24h, created_at")\
-        .order("created_at", desc=True)\
-        .limit(1)\
-        .execute()
-
-    if not result.data:
-        # Return empty state if no data (worker hasn't run yet)
-        return {
-            "bullish": 0,
-            "bearish": 0,
-            "score": 0,
-            "volume": "0",
-            "_warning": "No data in market_context. Is the ingest worker running?"
-        }
-
-    data = result.data[0]
-    
-    # Check if data is stale (older than 30 seconds)
-    from datetime import datetime, timezone
-    created_at_str = data.get("created_at")
-    if created_at_str:
-        try:
-            created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-            age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
-            if age_seconds > 30:
-                return {
-                    "bullish": int(data.get("sentiment_bullish", 0)),
-                    "bearish": int(data.get("sentiment_bearish", 0)),
-                    "score": int(data.get("sentiment_score", 0)),
-                    "volume": data.get("post_volume_24h", "0"),
-                    "_warning": f"Data is {int(age_seconds)}s old. Worker may have stopped."
-                }
-        except:
-            pass
-    
-    return {
-        "bullish": int(data.get("sentiment_bullish", 0)),
-        "bearish": int(data.get("sentiment_bearish", 0)),
-        "score": int(data.get("sentiment_score", 0)),
-        "volume": data.get("post_volume_24h", "0")
-    }
+    """Get aggregated sentiment stats computed from live Reddit data."""
+    posts = await _fetch_reddit_posts_cached()
+    return _compute_sentiment_stats(posts)

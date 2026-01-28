@@ -26,7 +26,7 @@ def unregister_session(session: Any):
         logger.info("🎙️ Voice session unregistered")
 
 
-async def speak(text: str, alert_context: dict | None = None) -> bool:
+async def speak(text: str, alert_context: Optional[dict] = None) -> bool:
     """
     Send a system message to the active voice session and speak it.
     Returns True if delivered, False otherwise.

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Flex, Text, Button, TextField } from "@radix-ui/themes";
-import { PlusIcon, TrashIcon, ArrowLeftIcon, SpeakerLoudIcon, SpeakerOffIcon, PersonIcon } from "@radix-ui/react-icons";
+import { PlusIcon, TrashIcon, ArrowLeftIcon, PersonIcon } from "@radix-ui/react-icons";
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useAlpacaWebSocket } from "@/hooks/useAlpacaWebSocket";
 import type { AlpacaMessage } from "@/lib/websocket";
@@ -343,11 +343,38 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
     return threadId;
   };
   const threadIdRef = useRef<string>(getThreadId());
-  // Auto-connect voice WebSocket on mount so agent is ready without visiting voice-test
+  // Auto-connect voice WebSocket on mount with retry
   useEffect(() => {
-    if (!wsVoiceRef.current) {
-      connectVoiceAgent();
-    }
+    let cancelled = false;
+    const autoConnect = async () => {
+      const maxRetries = 3;
+      const delayMs = 2000;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (cancelled) return;
+        if (wsVoiceRef.current && (wsVoiceRef.current.readyState === WebSocket.OPEN || wsVoiceRef.current.readyState === WebSocket.CONNECTING)) {
+          return; // Already connected or connecting
+        }
+        try {
+          await connectVoiceAgent();
+          // Wait briefly for the WebSocket to actually open
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (wsVoiceRef.current && wsVoiceRef.current.readyState === WebSocket.OPEN) {
+            return; // Connected successfully
+          }
+        } catch {
+          // Ignore — will retry
+        }
+        if (attempt < maxRetries && !cancelled) {
+          console.warn(`Voice auto-connect attempt ${attempt}/${maxRetries} failed, retrying in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+      if (!cancelled) {
+        console.warn("Voice auto-connect failed after all retries — voice unavailable");
+      }
+    };
+    autoConnect();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -374,7 +401,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
       };
 
       ws.onerror = (error) => {
-        console.error("Voice WebSocket error. readyState:", ws.readyState, "event:", error);
+        console.warn("Voice WebSocket error. readyState:", ws.readyState, "event:", error);
         setVoiceError("WebSocket connection error");
       };
 
@@ -525,7 +552,6 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
 
   const playVoiceAudio = async (base64Audio: string) => {
     try {
-      if (isMuted) return; // Don't play if muted
 
       audioQueueRef.current.push(base64Audio);
 
@@ -1410,7 +1436,7 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                 />
 
                 {/* Control Buttons */}
-                <div className="absolute top-3 left-3 flex gap-2">
+                <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 10, pointerEvents: 'auto' }}>
                   {/* Voice Agent Button - Microphone/Mute */}
                   <button
                     onClick={async (e) => {
@@ -1445,9 +1471,18 @@ export default function CryptoHoldings({ initialSelectedHolding = null, onReturn
                     title={isRecording ? "🎤 Recording - Click to stop" : "🎤 Click to start voice"}
                   >
                     {isRecording ? (
-                      <SpeakerLoudIcon width="18" height="18" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="2" width="6" height="11" rx="3" />
+                        <path d="M5 10a7 7 0 0 0 14 0" />
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                      </svg>
                     ) : (
-                      <SpeakerOffIcon width="18" height="18" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="2" width="6" height="11" rx="3" />
+                        <path d="M5 10a7 7 0 0 0 14 0" />
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                        <line x1="2" y1="2" x2="22" y2="22" />
+                      </svg>
                     )}
                   </button>
 

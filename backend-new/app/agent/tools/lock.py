@@ -1,12 +1,11 @@
 """
 Tool: lock_user_account()
 Emergency lockout to prevent bad trades during high-risk scenarios
-Directly updates Supabase portfolio.is_locked field
+Uses in-memory lock state (no Supabase required)
 """
-import os
 from datetime import datetime, timedelta
 from langchain_core.tools import tool
-from app.services.supabase import get_supabase
+from app.services.cache import set_lock_state
 
 
 @tool
@@ -28,28 +27,13 @@ async def lock_user_account(reason: str, duration_seconds: int = 30) -> str:
     Returns confirmation message.
     """
     try:
-        db = get_supabase()
-
-        # Calculate expiration time
         lock_expires_at = datetime.utcnow() + timedelta(seconds=duration_seconds)
 
-        # Get the first portfolio record (there should only be one)
-        portfolio_result = db.client.table("portfolio").select("id").limit(1).execute()
-
-        if not portfolio_result.data:
-            return "ERROR: Failed to lock account. Portfolio record not found."
-
-        portfolio_id = portfolio_result.data[0]["id"]
-
-        # Update portfolio lock status using the actual UUID
-        result = db.client.table("portfolio").update({
-            "is_locked": True,
-            "lock_reason": reason,
-            "lock_expires_at": lock_expires_at.isoformat()
-        }).eq("id", portfolio_id).execute()
-
-        if not result.data:
-            return "ERROR: Failed to lock account. Update failed."
+        set_lock_state(
+            is_locked=True,
+            lock_reason=reason,
+            lock_expires_at=lock_expires_at.isoformat(),
+        )
 
         minutes = duration_seconds // 60
         seconds = duration_seconds % 60

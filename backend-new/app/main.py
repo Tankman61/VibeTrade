@@ -27,9 +27,14 @@ from app.api.test_anomaly import router as test_anomaly_router
 from app.api.debug import router as debug_router
 from app.api.agent import router as agent_router
 from app.api.voice_websocket import router as voice_router
-from app.workers.ingest import DataIngestWorker
-from app.workers.monitor import TriggerMonitorWorker
-from app.workers.anomaly_worker import AnomalyWorker
+try:
+    from app.workers.ingest import DataIngestWorker
+    from app.workers.monitor import TriggerMonitorWorker
+    from app.workers.anomaly_worker import AnomalyWorker
+    _WORKERS_AVAILABLE = True
+except Exception as _workers_err:
+    _WORKERS_AVAILABLE = False
+    logging.getLogger(__name__).warning(f"Workers unavailable (Supabase likely missing): {_workers_err}")
 
 # Configure logging
 logging.basicConfig(
@@ -65,23 +70,29 @@ async def lifespan(app: FastAPI):
 
     # Optionally auto-start workers alongside FastAPI (demo convenience)
     app.state.worker_tasks = []
-    if os.getenv("AUTO_START_WORKERS", "true").lower() == "true":
-        logger.info("Auto-starting workers with FastAPI lifespan")
-        ingest_worker = DataIngestWorker()
-        monitor_worker = TriggerMonitorWorker(websocket_manager=None)
-        anomaly_worker = AnomalyWorker()
+    if os.getenv("AUTO_START_WORKERS", "true").lower() == "true" and _WORKERS_AVAILABLE:
+        try:
+            logger.info("Auto-starting workers with FastAPI lifespan")
+            ingest_worker = DataIngestWorker()
+            monitor_worker = TriggerMonitorWorker(websocket_manager=None)
+            anomaly_worker = AnomalyWorker()
 
-        # Store references for shutdown
-        app.state.ingest_worker = ingest_worker
-        app.state.monitor_worker = monitor_worker
-        app.state.anomaly_worker = anomaly_worker
+            # Store references for shutdown
+            app.state.ingest_worker = ingest_worker
+            app.state.monitor_worker = monitor_worker
+            app.state.anomaly_worker = anomaly_worker
 
-        # Launch in background tasks so FastAPI can serve immediately
-        app.state.worker_tasks = [
-            asyncio.create_task(ingest_worker.start()),
-            asyncio.create_task(monitor_worker.start()),
-            asyncio.create_task(anomaly_worker.start())
-        ]
+            # Launch in background tasks so FastAPI can serve immediately
+            app.state.worker_tasks = [
+                asyncio.create_task(ingest_worker.start()),
+                asyncio.create_task(monitor_worker.start()),
+                asyncio.create_task(anomaly_worker.start())
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to start workers (Supabase may be unavailable): {e}")
+            logger.info("Continuing without workers — live-fetch endpoints will serve data directly")
+    elif not _WORKERS_AVAILABLE:
+        logger.info("Workers skipped — Supabase is unavailable. Live-fetch endpoints will serve data directly.")
     else:
         logger.info("AUTO_START_WORKERS disabled; workers not started by FastAPI")
     
@@ -93,11 +104,13 @@ async def lifespan(app: FastAPI):
     worker_tasks = getattr(app.state, "worker_tasks", [])
     if worker_tasks:
         logger.info("Stopping background workers...")
-        await asyncio.gather(
-            app.state.ingest_worker.stop(),
-            app.state.monitor_worker.stop(),
-            app.state.anomaly_worker.stop()
-        )
+        stop_coros = []
+        for attr in ("ingest_worker", "monitor_worker", "anomaly_worker"):
+            worker = getattr(app.state, attr, None)
+            if worker:
+                stop_coros.append(worker.stop())
+        if stop_coros:
+            await asyncio.gather(*stop_coros)
         for task in worker_tasks:
             task.cancel()
         logger.info("Workers stopped")

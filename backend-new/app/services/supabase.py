@@ -19,9 +19,14 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env")
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    logger.warning("SUPABASE_URL and/or SUPABASE_SERVICE_KEY not set — Supabase disabled")
+    supabase = None
+else:
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    except Exception as e:
+        logger.warning(f"Failed to create Supabase client: {e} — Supabase disabled")
+        supabase = None
 
 
 class SupabaseWrapper:
@@ -100,6 +105,13 @@ class SupabaseWrapper:
             return None
 
 
+def is_supabase_available() -> bool:
+    """Check if Supabase client is available."""
+    return supabase is not None
+
+
 def get_supabase() -> SupabaseWrapper:
-    """Get Supabase wrapper instance"""
+    """Get Supabase wrapper instance. Raises if Supabase is not configured."""
+    if supabase is None:
+        raise RuntimeError("Supabase is not configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env")
     return SupabaseWrapper(supabase)

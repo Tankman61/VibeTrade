@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict
 
-from app.services.supabase import get_supabase
+from app.services.cache import get_lock_state as _get_lock_state_from_cache
 from app.services.alpaca_trading import trading_service
 from app.services.alpaca import alpaca_service
 
@@ -29,11 +29,7 @@ def _format_symbol(symbol: str) -> str:
 
 
 def _get_lock_state() -> Dict[str, Optional[str]]:
-    db = get_supabase()
-    result = db.client.table("portfolio").select("is_locked, lock_reason, lock_expires_at").limit(1).execute()
-    if result.data:
-        return result.data[0]
-    return {"is_locked": False, "lock_reason": None, "lock_expires_at": None}
+    return _get_lock_state_from_cache()
 
 
 @router.get("/portfolio")
